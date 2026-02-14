@@ -73,9 +73,16 @@ jobs:
         pwd
         ls -la
         # Remove any existing config files to avoid conflicts
-        rm -f capacitor.config.ts capacitor.config.json
-        # Initialize Capacitor with JSON config
-        npx cap init AilakeApp com.ailake.app --web-dir=dist
+        rm -f capacitor.config.ts
+        # Use existing JSON config or create new one
+        if [ ! -f "capacitor.config.json" ]; then
+          npx cap init AilakeApp com.ailake.app --web-dir=dist
+        fi
+        # Remove existing Android directory if it exists
+        if [ -d "android" ]; then
+          echo "Removing existing Android directory..."
+          rm -rf android
+        fi
         # Add Android platform
         npx cap add android
 
