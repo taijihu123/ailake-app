@@ -91,13 +91,20 @@ jobs:
         echo "=== Building Android APK ==="
         export ANDROID_HOME=$HOME/Android/Sdk
         export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "PATH: $PATH"
         cd source/ailake-app
         pwd
+        ls -la
+        # Sync Capacitor
         npx cap sync android
+        # Check Android directory
         cd android
         pwd
         ls -la
-        ./gradlew assembleDebug --no-daemon
+        ls -la app/
+        # Build APK with verbose output
+        ./gradlew assembleDebug --no-daemon --stacktrace
 
     - name: Debug - Check APK output
       run: |
