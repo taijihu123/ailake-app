@@ -13,22 +13,37 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Debug - Check current directory
+      run: pwd
+
+    - name: Debug - List directory contents
+      run: ls -la
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
 
+    - name: Debug - Check Node.js version
+      run: node --version
+
     - name: Install dependencies
       run: |
+        echo "=== Installing dependencies ==="
         cd source/ailake-app
+        pwd
+        ls -la
         npm install --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android
 
     - name: Build web app
       run: |
+        echo "=== Building web app ==="
         cd source/ailake-app
+        pwd
         npm run build
+        ls -la dist
 
     - name: Set up Java
       uses: actions/setup-java@v4
@@ -36,26 +51,46 @@ jobs:
         distribution: 'adopt'
         java-version: '17'
 
+    - name: Debug - Check Java version
+      run: java -version
+
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
       with:
         android-sdk-license-accept: true
         packages: "build-tools;33.0.2 platforms;android-33"
 
+    - name: Debug - Check Android SDK
+      run: |
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        ls -la $ANDROID_HOME
+
     - name: Initialize Capacitor Android
       run: |
+        echo "=== Initializing Capacitor Android ==="
         cd source/ailake-app
+        pwd
         npx cap init AilakeApp com.ailake.app --web-dir=dist
         npx cap add android
 
     - name: Build Android APK
       run: |
+        echo "=== Building Android APK ==="
         export ANDROID_HOME=$HOME/Android/Sdk
         export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2
         cd source/ailake-app
+        pwd
         npx cap sync android
         cd android
+        pwd
+        ls -la
         ./gradlew assembleDebug --no-daemon
+
+    - name: Debug - Check APK output
+      run: |
+        echo "=== Checking APK output ==="
+        ls -la source/ailake-app/android/app/build/outputs/apk/
+        ls -la source/ailake-app/android/app/build/outputs/apk/debug/
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
