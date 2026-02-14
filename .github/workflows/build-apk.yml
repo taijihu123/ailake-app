@@ -66,12 +66,17 @@ jobs:
         echo "ANDROID_HOME: $ANDROID_HOME"
         ls -la $ANDROID_HOME
 
-    - name: Initialize Capacitor Android
+    - name: Initialize Capacitor and add Android
       run: |
-        echo "=== Initializing Capacitor Android ==="
+        echo "=== Initializing Capacitor ==="
         cd source/ailake-app
         pwd
+        ls -la
+        # Remove any existing config files to avoid conflicts
+        rm -f capacitor.config.ts capacitor.config.json
+        # Initialize Capacitor with JSON config
         npx cap init AilakeApp com.ailake.app --web-dir=dist
+        # Add Android platform
         npx cap add android
 
     - name: Build Android APK
