@@ -20,8 +20,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./source/ailake-app
-        run: |
-          npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Build web app
         working-directory: ./source/ailake-app
@@ -40,12 +39,14 @@ jobs:
       - name: Add Android & Sync
         working-directory: ./source/ailake-app
         run: |
+          if [ -d "android" ]; then
+            rm -rf android
+          fi
           npx cap add android
           npx cap sync android
 
       - name: Fix Java version to 17
         working-directory: ./source/ailake-app
-        shell: bash
         run: |
           cat > android/app/build.gradle << 'EOF'
 plugins {
