@@ -65,7 +65,23 @@ jobs:
 
       - name: Build Android APK
         working-directory: ./source/ailake-app/android
-        run: ./gradlew assembleDebug --stacktrace --info
+        run: |
+          echo "=== Building Android APK ==="
+          echo "PWD: $(pwd)"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo "PATH: $PATH"
+          ls -la
+          ./gradlew assembleDebug --stacktrace --info || {
+            echo "=== Build failed, showing more details ==="
+            if [ -f "local.properties" ]; then
+              cat local.properties
+            else
+              echo "local.properties not found"
+            fi
+            echo "=== End of additional details ==="
+            exit 1
+          }
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -1,1 +1,6 @@
-{"appId":"com.ailake.app","appName":"AilakeApp","webDir":"dist"}
+{
+  "appId": "com.ailake.app",
+  "appName": "AilakeApp",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
