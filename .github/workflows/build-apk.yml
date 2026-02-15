@@ -12,17 +12,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install npm dependencies
+      - name: Install dependencies
         working-directory: ./source/ailake-app
         run: |
           npm install --legacy-peer-deps
-          npm install @capacitor/core @capacitor/cli @capacitor/android
 
       - name: Build web app
         working-directory: ./source/ailake-app
@@ -37,34 +36,17 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
-          cmdline-tools-version: latest
 
-      - name: Set Android environment variables
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2" >> $GITHUB_ENV
-
-      - name: Configure Capacitor
+      - name: Add Android & Sync
         working-directory: ./source/ailake-app
         run: |
-          # Clean up existing Android directory
-          if [ -d "android" ]; then
-            echo "Removing existing Android directory..."
-            rm -rf android
-          fi
-          # Add Android platform
-          echo "Adding Android platform..."
           npx cap add android
-          # Sync Android platform
-          echo "Syncing Android platform..."
           npx cap sync android
-          # Fix Java version in build.gradle
-          echo "Fixing Java version in build.gradle..."
-          # Create a new build.gradle file with correct configuration
+
+      - name: Fix Java version to 17
+        working-directory: ./source/ailake-app
+        shell: bash
+        run: |
           cat > android/app/build.gradle << 'EOF'
 plugins {
     id 'com.android.application'
@@ -87,53 +69,26 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
 }
 
 dependencies {
-    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.9.0'
 }
 EOF
-          echo "Created new build.gradle file with correct configuration"
-          cat android/app/build.gradle
 
-      - name: Build Android APK
+      - name: Build APK
         working-directory: ./source/ailake-app/android
-        run: |
-          echo "=== Building Android APK ==="
-          echo "PWD: $(pwd)"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo "PATH: $PATH"
-          ls -la
-          ./gradlew assembleDebug --stacktrace --info || {
-            echo "=== Build failed, showing more details ==="
-            if [ -f "local.properties" ]; then
-              cat local.properties
-            else
-              echo "local.properties not found"
-            fi
-            echo "=== End of additional details ==="
-            exit 1
-          }
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ailake-app
