@@ -58,8 +58,9 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
       with:
-        android-sdk-license-accept: true
-        packages: "build-tools;33.0.2 platforms;android-33"
+        accept-android-sdk-licenses: true
+        packages: "build-tools;33.0.2 platforms;android-33 ndk;25.1.8937393"
+        cmdline-tools-version: latest
 
     - name: Debug - Check Android SDK
       run: |
