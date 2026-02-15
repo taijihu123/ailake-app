@@ -1,4 +1,4 @@
-name: Build Android APK (修复语法错误版)
+name: Build Android APK (修复compileSdk错误版)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,25 +36,26 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 关键：只修改子模块（app、capacitor-android等），不修改根项目的build.gradle
-      - name: Force Java 17 only in submodules
+      # 关键：只修改子模块，保留compileSdk配置，只添加Java配置
+      - name: Fix Java configuration and compileSdk
         working-directory: ./source/ailake-app/android
         run: |
-          # 只修改app和capacitor子模块，跳过根项目
-          for module in app capacitor-android capacitor-cordova-android-plugins; do
-            file="$module/build.gradle"
-            if [ -f "$file" ]; then
-              echo "修复模块: $module"
-              sed -i '/^android {/a \
-                  compileOptions {\
-                      sourceCompatibility JavaVersion.VERSION_17\
-                      targetCompatibility JavaVersion.VERSION_17\
-                  }\
-                  kotlinOptions {\
-                      jvmTarget = "17"\
-                  }' "$file"
+          # 只修改app模块
+          if [ -f "app/build.gradle" ]; then
+            echo "修复app模块"
+            # 确保compileSdk配置存在
+            if ! grep -q "compileSdk" app/build.gradle; then
+              sed -i '/^android {/a \    compileSdk 34' app/build.gradle
             fi
-          done
+            # 只添加Java配置，移除kotlinOptions
+            sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' app/build.gradle
+          fi
+          
+          # 修复capacitor-android模块
+          if [ -f "capacitor-android/build.gradle" ]; then
+            echo "修复capacitor-android模块"
+            sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' capacitor-android/build.gradle
+          fi
 
       # 构建APK，彻底关闭守护进程
       - name: Build APK
