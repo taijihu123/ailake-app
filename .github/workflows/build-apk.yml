@@ -12,13 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 22 (Capacitor 要求)
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         working-directory: ./source/ailake-app
         run: npm install --legacy-peer-deps
 
@@ -26,7 +26,7 @@ jobs:
         working-directory: ./source/ailake-app
         run: npm run build
 
-      - name: Set up JDK 17
+      - name: Set up JDK 17 (Android 编译要求)
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -35,23 +35,29 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
 
-      - name: Add Android & Sync
+      - name: 关键步骤：让 Capacitor 自动生成正确的 Android 项目
         working-directory: ./source/ailake-app
         run: |
-          if [ -d "android" ]; then
-            rm -rf android
-          fi
+          # 清理旧的 Android 目录
+          rm -rf android
+          # 添加 Android 平台（Capacitor 会生成默认的 build.gradle）
           npx cap add android
+          # 同步配置（关键：保留所有资源和依赖）
           npx cap sync android
+          # 只修改 Java 版本，不覆盖整个 build.gradle（核心修复）
+          sed -i '/compileOptions {/!b;n;c\        sourceCompatibility JavaVersion.VERSION_17' android/app/build.gradle
+          sed -i '/compileOptions {/!b;n;n;c\        targetCompatibility JavaVersion.VERSION_17' android/app/build.gradle
 
-      - name: Build APK
+      - name: Build APK (保留所有 Capacitor 资源)
         working-directory: ./source/ailake-app/android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: ailake-app
+          name: ailake-app-debug
           path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
