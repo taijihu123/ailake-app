@@ -1,4 +1,4 @@
-name: Build Android APK (修复compileSdk错误版)
+name: Build Android APK (终极覆盖版)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,28 +36,58 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 关键：只修改子模块，保留compileSdk配置，只添加Java配置
-      - name: Fix Java configuration and compileSdk
+      # 关键：直接重写 capacitor-android 的 build.gradle，强制 Java 17
+      - name: Override capacitor-android build.gradle
         working-directory: ./source/ailake-app/android
         run: |
-          # 只修改app模块
-          if [ -f "app/build.gradle" ]; then
-            echo "修复app模块"
-            # 确保compileSdk配置存在
-            if ! grep -q "compileSdk" app/build.gradle; then
-              sed -i '/^android {/a \    compileSdk 34' app/build.gradle
-            fi
-            # 只添加Java配置，移除kotlinOptions
-            sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' app/build.gradle
+          # 先找到 capacitor-android 的真实路径
+          CAPACITOR_PATH=$(find . -name "capacitor-android" -type d)
+          if [ -z "$CAPACITOR_PATH" ]; then
+            echo "找不到 capacitor-android 目录，尝试其他路径..."
+            CAPACITOR_PATH=$(find . -name "*capacitor*android*" -type d | head -1)
           fi
-          
-          # 修复capacitor-android模块
-          if [ -f "capacitor-android/build.gradle" ]; then
-            echo "修复capacitor-android模块"
-            sed -i '/^android {/a \    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' capacitor-android/build.gradle
-          fi
+          echo "使用路径: $CAPACITOR_PATH"
 
-      # 构建APK，彻底关闭守护进程
+          # 直接重写 build.gradle，确保 Java 17
+          cat > "$CAPACITOR_PATH/build.gradle" << 'EOF'
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 34
+    buildToolsVersion "34.0.0"
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'com.google.android.material:material:1.11.0'
+}
+EOF
+
+      # 修复 app 模块的 compileSdk
+      - name: Fix app module build.gradle
+        working-directory: ./source/ailake-app/android
+        run: |
+          sed -i '/^android {/a \ 
+              compileSdk 34\
+              compileOptions {\
+                  sourceCompatibility JavaVersion.VERSION_17\
+                  targetCompatibility JavaVersion.VERSION_17\
+              }' app/build.gradle
+
+      # 构建APK
       - name: Build APK
         working-directory: ./source/ailake-app/android
         run: |
