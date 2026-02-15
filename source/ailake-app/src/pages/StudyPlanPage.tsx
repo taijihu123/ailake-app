@@ -55,7 +55,7 @@ const StudyPlanPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-light-green-50 flex flex-col">
+    <div className="min-h-screen bg-green-50 flex flex-col">
       {/* 顶部状态栏 */}
       <div className="w-full flex justify-between items-center py-4 px-4 bg-white shadow-sm">
         <button onClick={() => navigate('/home')} className="text-sm text-green-600">

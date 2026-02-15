@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
@@ -14,6 +14,11 @@ import AilakeChatPage from './pages/AilakeChatPage';
 import GlobalAgentFloating from './components/GlobalAgentFloating';
 
 function App() {
+  const location = useLocation();
+  
+  // 检查当前是否为登录页
+  const isLoginPage = location.pathname === '/';
+  
   return (
     <div className="App">
       <Routes>
@@ -29,7 +34,7 @@ function App() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/ailake-chat" element={<AilakeChatPage />} />
       </Routes>
-      <GlobalAgentFloating />
+      {!isLoginPage && <GlobalAgentFloating />}
     </div>
   );
 }

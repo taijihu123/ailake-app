@@ -72,11 +72,28 @@ const MyPage: React.FC = () => {
     return date.toLocaleString('zh-CN');
   };
 
+  // 占位点击事件处理函数
+  const handleRecharge = () => {
+    console.log('充值功能开发中');
+    // 可以添加简单的提示
+  };
+
+  const handleWithdraw = () => {
+    console.log('提现功能开发中');
+    // 可以添加简单的提示
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 顶部极简用户栏：仅保留头像+用户名，不干扰功能区 */}
       <div className="bg-green-600 text-white p-4">
         <div className="flex items-center">
+          <button 
+            onClick={() => navigate(-1)}
+            className="mr-4 text-white"
+          >
+            ← 返回
+          </button>
           <img 
             src={userData.avatar} 
             className="w-12 h-12 rounded-full mr-3 border-2 border-white" 
@@ -126,8 +143,8 @@ const MyPage: React.FC = () => {
               <h4 className="text-gray-600 mb-2">我的学习币</h4>
               <p className="text-3xl font-bold text-green-600 mb-6">{userData.balance}</p>
               <div className="flex justify-center space-x-4">
-                <button className="bg-green-600 text-white px-6 py-2 rounded-lg">充值</button>
-                <button className="border border-green-600 text-green-600 px-6 py-2 rounded-lg">提现</button>
+                <button onClick={handleRecharge} className="bg-green-600 text-white px-6 py-2 rounded-lg">充值</button>
+                <button onClick={handleWithdraw} className="border border-green-600 text-green-600 px-6 py-2 rounded-lg">提现</button>
               </div>
             </div>
 
