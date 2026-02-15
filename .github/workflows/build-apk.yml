@@ -1,140 +1,64 @@
 name: Build Android APK
-# Updated to ensure proper APK build execution
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Debug - Check current directory
-      run: pwd
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-    - name: Debug - List directory contents
-      run: ls -la
+      - name: Install dependencies
+        run: |
+          cd source/ailake-app
+          npm install --legacy-peer-deps
+          npm install @capacitor/core @capacitor/cli @capacitor/android
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22.x'
-        cache: 'npm'
+      - name: Build web app
+        run: |
+          cd source/ailake-app
+          npm run build
 
-    - name: Debug - Check Node.js version
-      run: node --version
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Install dependencies
-      run: |
-        echo "=== Installing dependencies ==="
-        cd source/ailake-app
-        pwd
-        ls -la
-        npm install --legacy-peer-deps
-        npm install @capacitor/core @capacitor/cli @capacitor/android
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v2
 
-    - name: Build web app
-      run: |
-        echo "=== Building web app ==="
-        cd source/ailake-app
-        pwd
-        npm run build
-        ls -la dist
+      - name: Configure Capacitor
+        run: |
+          cd source/ailake-app
+          # Remove existing Android directory
+          if [ -d "android" ]; then
+            rm -rf android
+          fi
+          # Ensure we have a JSON config
+          if [ ! -f "capacitor.config.json" ]; then
+            npx cap init AilakeApp com.ailake.app --web-dir=dist
+          fi
+          # Add Android platform
+          npx cap add android
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'adopt'
-        java-version: '17'
+      - name: Build APK
+        run: |
+          cd source/ailake-app/android
+          ./gradlew assembleDebug
 
-    - name: Debug - Check Java version
-      run: java -version
-
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        accept-android-sdk-licenses: true
-        packages: "build-tools;33.0.2 platforms;android-33 ndk;25.1.8937393"
-        cmdline-tools-version: latest
-
-    - name: Debug - Check Android SDK
-      run: |
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        ls -la $ANDROID_HOME
-
-    - name: Initialize Capacitor and add Android
-      run: |
-        echo "=== Initializing Capacitor ==="
-        cd source/ailake-app
-        pwd
-        ls -la
-        # Remove any existing config files to avoid conflicts
-        rm -f capacitor.config.ts
-        # Use existing JSON config or create new one
-        if [ ! -f "capacitor.config.json" ]; then
-          npx cap init AilakeApp com.ailake.app --web-dir=dist
-        fi
-        # Remove existing Android directory if it exists
-        if [ -d "android" ]; then
-          echo "Removing existing Android directory..."
-          rm -rf android
-        fi
-        # Add Android platform
-        npx cap add android
-
-    - name: Build Android APK
-      run: |
-        echo "=== Building Android APK ==="
-        export ANDROID_HOME=$HOME/Android/Sdk
-        export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "PATH: $PATH"
-        echo "JAVA_HOME: $JAVA_HOME"
-        java -version
-        # Check Android SDK installation
-        echo "=== Checking Android SDK ==="
-        ls -la $ANDROID_HOME
-        ls -la $ANDROID_HOME/build-tools/
-        ls -la $ANDROID_HOME/platforms/
-        # Navigate to project directory
-        cd source/ailake-app
-        pwd
-        ls -la
-        # Sync Capacitor
-        echo "=== Syncing Capacitor ==="
-        npx cap sync android
-        # Check Android directory
-        echo "=== Checking Android directory ==="
-        cd android
-        pwd
-        ls -la
-        ls -la app/
-        ls -la app/src/
-        # Check Gradle files
-        echo "=== Checking Gradle files ==="
-        cat build.gradle
-        cat app/build.gradle
-        cat variables.gradle
-        # Build APK with verbose output
-        echo "=== Building APK ==="
-        ./gradlew --version
-        ./gradlew clean
-        ./gradlew assembleDebug --no-daemon --stacktrace --info
-
-    - name: Debug - Check APK output
-      run: |
-        echo "=== Checking APK output ==="
-        ls -la source/ailake-app/android/app/build/outputs/apk/
-        ls -la source/ailake-app/android/app/build/outputs/apk/debug/
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: ailake-app-debug.apk
-        path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
-        retention-days: 30
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ailake-app-apk
+          path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
