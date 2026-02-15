@@ -79,12 +79,19 @@ EOF
       - name: Fix app module build.gradle
         working-directory: ./source/ailake-app/android
         run: |
-          sed -i '/^android {/a \
-              compileSdk 34\
-              compileOptions {\
-                  sourceCompatibility JavaVersion.VERSION_17\
-                  targetCompatibility JavaVersion.VERSION_17\
-              }' app/build.gradle
+          # 使用更简单的方式修改 build.gradle
+          cat >> app/build.gradle << 'EOF'
+
+android {
+    compileSdk 34
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+EOF
+          # 移除重复的 android 块
+          sed -i '/^android {/N;/\n    compileSdk 34/d' app/build.gradle
 
       - name: Build APK
         working-directory: ./source/ailake-app/android
