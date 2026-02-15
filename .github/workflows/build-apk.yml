@@ -1,4 +1,4 @@
-name: Build Android APK (修复 YAML 语法版)
+name: Build Android APK (终极无语法错版)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,71 +36,53 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 关键：用 | 正确处理多行脚本，避免 YAML 语法错误
-      - name: Override capacitor-android build.gradle
+      # 核心：分步设置，不写多行字符串，彻底避免YAML错误
+      - name: Force Java 17 for all modules (分步版)
         working-directory: ./source/ailake-app/android
         run: |
-          # 先找到 capacitor-android 的真实路径
+          # 1. 找到capacitor-android路径
           CAPACITOR_PATH=$(find . -name "capacitor-android" -type d)
           if [ -z "$CAPACITOR_PATH" ]; then
-            echo "找不到 capacitor-android 目录，尝试其他路径..."
             CAPACITOR_PATH=$(find . -name "*capacitor*android*" -type d | head -1)
           fi
-          echo "使用路径: $CAPACITOR_PATH"
+          echo "Capacitor path: $CAPACITOR_PATH"
 
-          # 直接重写 build.gradle，确保 Java 17
-          cat > "$CAPACITOR_PATH/build.gradle" << 'EOF'
-apply plugin: 'com.android.library'
+          # 2. 给capacitor-android添加Java 17配置（分步写，不写多行）
+          echo "apply plugin: 'com.android.library'" > "$CAPACITOR_PATH/build.gradle"
+          echo "" >> "$CAPACITOR_PATH/build.gradle"
+          echo "android {" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    compileSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    buildToolsVersion \"34.0.0\"" >> "$CAPACITOR_PATH/build.gradle"
+          echo "" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    defaultConfig {" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        minSdkVersion 21" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        targetSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        versionCode 1" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        versionName \"1.0\"" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    }" >> "$CAPACITOR_PATH/build.gradle"
+          echo "" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    compileOptions {" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        sourceCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
+          echo "        targetCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    }" >> "$CAPACITOR_PATH/build.gradle"
+          echo "}" >> "$CAPACITOR_PATH/build.gradle"
+          echo "" >> "$CAPACITOR_PATH/build.gradle"
+          echo "dependencies {" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    implementation 'androidx.core:core-ktx:1.12.0'" >> "$CAPACITOR_PATH/build.gradle"
+          echo "    implementation 'com.google.android.material:material:1.11.0'" >> "$CAPACITOR_PATH/build.gradle"
+          echo "}" >> "$CAPACITOR_PATH/build.gradle"
 
-android {
-    compileSdkVersion 34
-    buildToolsVersion "34.0.0"
+          # 3. 修复app模块
+          sed -i '/^android {/a \    compileSdk 34\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' app/build.gradle
 
-    defaultConfig {
-        minSdkVersion 21
-        targetSdkVersion 34
-        versionCode 1
-        versionName "1.0"
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-}
-
-dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'com.google.android.material:material:1.11.0'
-}
-EOF
-
-      - name: Fix app module build.gradle
-        working-directory: ./source/ailake-app/android
-        run: |
-          # 使用更简单的方式修改 build.gradle
-          cat >> app/build.gradle << 'EOF'
-
-android {
-    compileSdk 34
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-}
-EOF
-          # 移除重复的 android 块
-          sed -i '/^android {/N;/\n    compileSdk 34/d' app/build.gradle
-
+      # 构建APK
       - name: Build APK
         working-directory: ./source/ailake-app/android
         run: |
-          ./gradlew assembleDebug \
-            --no-daemon \
-            -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
-            -Dorg.gradle.jvmargs="-Xmx2048m"
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 -Dorg.gradle.jvmargs=-Xmx2048m
 
+      # 上传产物
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
