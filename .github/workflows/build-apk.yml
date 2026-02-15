@@ -96,7 +96,13 @@ jobs:
       - name: Build APK
         working-directory: ./source/ailake-app/android
         run: |
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 -Dorg.gradle.jvmargs=-Xmx2048m
+          # 核心：强制覆盖所有模块的Java编译版本，无视源码中的硬编码配置
+          ./gradlew assembleDebug --no-daemon \
+            -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
+            -Dorg.gradle.jvmargs=-Xmx2048m \
+            -Dorg.gradle.java.release=17 \
+            -Dandroid.compileOptions.sourceCompatibility=JavaVersion.VERSION_17 \
+            -Dandroid.compileOptions.targetCompatibility=JavaVersion.VERSION_17
 
       # 上传产物
       - name: Upload APK artifact
