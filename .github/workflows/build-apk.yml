@@ -40,7 +40,17 @@ jobs:
       - name: Fix all Android modules (app + capacitor + plugins)
         working-directory: ./source/ailake-app/android
         run: |
-          # 1. 修复capacitor-android模块
+          # 1. 修复capacitor-android模块（包括node_modules中的源文件）
+          # 首先检查node_modules中的capacitor-android源文件
+          NODE_MODULES_CAPACITOR="../node_modules/@capacitor/android/capacitor/build.gradle"
+          if [ -f "$NODE_MODULES_CAPACITOR" ]; then
+            echo "修复node_modules中的capacitor-android源文件: $NODE_MODULES_CAPACITOR"
+            # 直接修改源文件中的硬编码Java版本
+            sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' "$NODE_MODULES_CAPACITOR"
+            echo "已将capacitor-android源文件中的Java 21改为Java 17"
+          fi
+          
+          # 然后修复项目中的capacitor-android模块
           CAPACITOR_PATH=$(find . -name "capacitor-android" -type d)
           if [ -n "$CAPACITOR_PATH" ]; then
             echo "修复capacitor-android: $CAPACITOR_PATH"
