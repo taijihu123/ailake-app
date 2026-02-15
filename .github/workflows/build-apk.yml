@@ -94,18 +94,37 @@ jobs:
         export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2
         echo "ANDROID_HOME: $ANDROID_HOME"
         echo "PATH: $PATH"
+        echo "JAVA_HOME: $JAVA_HOME"
+        java -version
+        # Check Android SDK installation
+        echo "=== Checking Android SDK ==="
+        ls -la $ANDROID_HOME
+        ls -la $ANDROID_HOME/build-tools/
+        ls -la $ANDROID_HOME/platforms/
+        # Navigate to project directory
         cd source/ailake-app
         pwd
         ls -la
         # Sync Capacitor
+        echo "=== Syncing Capacitor ==="
         npx cap sync android
         # Check Android directory
+        echo "=== Checking Android directory ==="
         cd android
         pwd
         ls -la
         ls -la app/
+        ls -la app/src/
+        # Check Gradle files
+        echo "=== Checking Gradle files ==="
+        cat build.gradle
+        cat app/build.gradle
+        cat variables.gradle
         # Build APK with verbose output
-        ./gradlew assembleDebug --no-daemon --stacktrace
+        echo "=== Building APK ==="
+        ./gradlew --version
+        ./gradlew clean
+        ./gradlew assembleDebug --no-daemon --stacktrace --info
 
     - name: Debug - Check APK output
       run: |
