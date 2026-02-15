@@ -97,7 +97,8 @@ jobs:
         working-directory: ./source/ailake-app/android
         run: |
           # 核心：强制覆盖所有模块的Java编译版本，无视源码中的硬编码配置
-          ./gradlew assembleDebug --no-daemon \
+          # 添加 --warning-mode all 查看所有弃用警告，帮助排查问题
+          ./gradlew assembleDebug --no-daemon --warning-mode all \
             -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
             -Dorg.gradle.jvmargs=-Xmx2048m \
             -Dorg.gradle.java.release=17 \
