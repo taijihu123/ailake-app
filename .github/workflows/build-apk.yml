@@ -46,10 +46,9 @@ jobs:
         run: |
           # Clean up existing Android directory
           rm -rf android
-          # Initialize Capacitor with JSON config
-          npx cap init AilakeApp com.ailake.app --web-dir=dist
-          # Add Android platform
+          # Use existing capacitor.config.ts and sync Android platform
           npx cap add android
+          npx cap sync android
 
       - name: Build Android APK
         working-directory: ./source/ailake-app/android
