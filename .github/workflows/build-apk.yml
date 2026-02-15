@@ -62,6 +62,10 @@ jobs:
           # Sync Android platform
           echo "Syncing Android platform..."
           npx cap sync android
+          # Fix Java version in build.gradle
+          echo "Fixing Java version in build.gradle..."
+          sed -i 's/buildTypes {/buildTypes {\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n    kotlinOptions {\n        jvmTarget = "17"\n    }/' android/app/build.gradle
+          cat android/app/build.gradle
 
       - name: Build Android APK
         working-directory: ./source/ailake-app/android
