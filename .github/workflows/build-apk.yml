@@ -6,59 +6,54 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install npm dependencies
+        working-directory: ./source/ailake-app
         run: |
-          cd source/ailake-app
           npm install --legacy-peer-deps
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
       - name: Build web app
-        run: |
-          cd source/ailake-app
-          npm run build
+        working-directory: ./source/ailake-app
+        run: npm run build
 
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Configure Capacitor
+        working-directory: ./source/ailake-app
         run: |
-          cd source/ailake-app
-          # Remove existing Android directory
-          if [ -d "android" ]; then
-            rm -rf android
-          fi
-          # Ensure we have a JSON config
-          if [ ! -f "capacitor.config.json" ]; then
-            npx cap init AilakeApp com.ailake.app --web-dir=dist
-          fi
+          # Clean up existing Android directory
+          rm -rf android
+          # Initialize Capacitor with JSON config
+          npx cap init AilakeApp com.ailake.app --web-dir=dist
           # Add Android platform
           npx cap add android
 
-      - name: Build APK
-        run: |
-          cd source/ailake-app/android
-          ./gradlew assembleDebug
+      - name: Build Android APK
+        working-directory: ./source/ailake-app/android
+        run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ailake-app-apk
+          name: ailake-app
           path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
