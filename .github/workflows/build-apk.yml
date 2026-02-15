@@ -1,4 +1,4 @@
-name: Build Android APK (修复参数版)
+name: Build Android APK (修复语法错误版)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,32 +36,34 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 关键：先在所有 build.gradle 里插入 Java 17 配置
-      - name: Force Java 17 in all build.gradle
+      # 关键：只修改子模块（app、capacitor-android等），不修改根项目的build.gradle
+      - name: Force Java 17 only in submodules
         working-directory: ./source/ailake-app/android
         run: |
-          find . -name "build.gradle" -type f | while read file; do
-            sed -i '/^android {/a \ 
-                compileOptions {\
-                    sourceCompatibility JavaVersion.VERSION_17\
-                    targetCompatibility JavaVersion.VERSION_17\
-                }\
-                kotlinOptions {\
-                    jvmTarget = "17"\
-                }' "$file"
+          # 只修改app和capacitor子模块，跳过根项目
+          for module in app capacitor-android capacitor-cordova-android-plugins; do
+            file="$module/build.gradle"
+            if [ -f "$file" ]; then
+              echo "修复模块: $module"
+              sed -i '/^android {/a \
+                  compileOptions {\
+                      sourceCompatibility JavaVersion.VERSION_17\
+                      targetCompatibility JavaVersion.VERSION_17\
+                  }\
+                  kotlinOptions {\
+                      jvmTarget = "17"\
+                  }' "$file"
+            fi
           done
 
-      # 修复：彻底关闭守护进程，只在编译任务上指定 release 版本
-      - name: Build APK (no daemon, correct params)
+      # 构建APK，彻底关闭守护进程
+      - name: Build APK
         working-directory: ./source/ailake-app/android
         run: |
           ./gradlew assembleDebug \
             --no-daemon \
             -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
-            -Dorg.gradle.jvmargs="-Xmx2048m" \
-            -Porg.gradle.java.version=17 \
-            -Porg.gradle.jdk.version=17 \
-            compileDebugJavaWithJavac --release 17
+            -Dorg.gradle.jvmargs="-Xmx2048m"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
