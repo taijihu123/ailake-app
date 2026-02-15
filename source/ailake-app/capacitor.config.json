@@ -2,5 +2,11 @@
   "appId": "com.ailake.app",
   "appName": "AilakeApp",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "android": {
+    "buildOptions": {
+      "sourceCompatibility": "17",
+      "targetCompatibility": "17"
+    }
+  }
 }

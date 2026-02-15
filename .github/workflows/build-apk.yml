@@ -45,12 +45,6 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Fix Java version to 17
-        working-directory: ./source/ailake-app
-        run: |
-          # Run the script to generate build.gradle
-          bash ../../fix-build-gradle.sh
-
       - name: Build APK
         working-directory: ./source/ailake-app/android
         run: ./gradlew assembleDebug --stacktrace
