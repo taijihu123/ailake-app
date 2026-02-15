@@ -1,4 +1,4 @@
-name: Build Android APK (终极无语法错版)
+name: Build Android APK (全模块namespace修复版)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,45 +36,61 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 核心：分步设置，不写多行字符串，彻底避免YAML错误
-      - name: Force Java 17 for all modules (分步版)
+      # 核心：修复所有模块的namespace和Java版本
+      - name: Fix all Android modules (app + capacitor + plugins)
         working-directory: ./source/ailake-app/android
         run: |
-          # 1. 找到capacitor-android路径
+          # 1. 修复capacitor-android模块
           CAPACITOR_PATH=$(find . -name "capacitor-android" -type d)
-          if [ -z "$CAPACITOR_PATH" ]; then
-            CAPACITOR_PATH=$(find . -name "*capacitor*android*" -type d | head -1)
+          if [ -n "$CAPACITOR_PATH" ]; then
+            echo "修复capacitor-android: $CAPACITOR_PATH"
+            echo "apply plugin: 'com.android.library'" > "$CAPACITOR_PATH/build.gradle"
+            echo "" >> "$CAPACITOR_PATH/build.gradle"
+            echo "android {" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    namespace \"com.getcapacitor.android\"" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    compileSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    buildToolsVersion \"34.0.0\"" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    defaultConfig {" >> "$CAPACITOR_PATH/build.gradle"
+            echo "        minSdkVersion 21" >> "$CAPACITOR_PATH/build.gradle"
+            echo "        targetSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    }" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    compileOptions {" >> "$CAPACITOR_PATH/build.gradle"
+            echo "        sourceCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
+            echo "        targetCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    }" >> "$CAPACITOR_PATH/build.gradle"
+            echo "}" >> "$CAPACITOR_PATH/build.gradle"
+            echo "dependencies {" >> "$CAPACITOR_PATH/build.gradle"
+            echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> "$CAPACITOR_PATH/build.gradle"
+            echo "}" >> "$CAPACITOR_PATH/build.gradle"
           fi
-          echo "Capacitor path: $CAPACITOR_PATH"
 
-          # 2. 给capacitor-android添加Java 17配置（分步写，不写多行）
-          echo "apply plugin: 'com.android.library'" > "$CAPACITOR_PATH/build.gradle"
-          echo "" >> "$CAPACITOR_PATH/build.gradle"
-          echo "android {" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    compileSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    buildToolsVersion \"34.0.0\"" >> "$CAPACITOR_PATH/build.gradle"
-          echo "" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    defaultConfig {" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        minSdkVersion 21" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        targetSdkVersion 34" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        versionCode 1" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        versionName \"1.0\"" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    }" >> "$CAPACITOR_PATH/build.gradle"
-          echo "" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    compileOptions {" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        sourceCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
-          echo "        targetCompatibility JavaVersion.VERSION_17" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    }" >> "$CAPACITOR_PATH/build.gradle"
-          echo "}" >> "$CAPACITOR_PATH/build.gradle"
-          echo "" >> "$CAPACITOR_PATH/build.gradle"
-          echo "dependencies {" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    implementation 'androidx.core:core-ktx:1.12.0'" >> "$CAPACITOR_PATH/build.gradle"
-          echo "    implementation 'com.google.android.material:material:1.11.0'" >> "$CAPACITOR_PATH/build.gradle"
-          echo "}" >> "$CAPACITOR_PATH/build.gradle"
+          # 2. 修复capacitor-cordova-android-plugins模块（新增）
+          PLUGINS_PATH=$(find . -name "capacitor-cordova-android-plugins" -type d)
+          if [ -n "$PLUGINS_PATH" ]; then
+            echo "修复插件模块: $PLUGINS_PATH"
+            echo "apply plugin: 'com.android.library'" > "$PLUGINS_PATH/build.gradle"
+            echo "" >> "$PLUGINS_PATH/build.gradle"
+            echo "android {" >> "$PLUGINS_PATH/build.gradle"
+            echo "    namespace \"com.getcapacitor.cordova.plugins\"" >> "$PLUGINS_PATH/build.gradle" # 插件默认namespace
+            echo "    compileSdkVersion 34" >> "$PLUGINS_PATH/build.gradle"
+            echo "    buildToolsVersion \"34.0.0\"" >> "$PLUGINS_PATH/build.gradle"
+            echo "    defaultConfig {" >> "$PLUGINS_PATH/build.gradle"
+            echo "        minSdkVersion 21" >> "$PLUGINS_PATH/build.gradle"
+            echo "        targetSdkVersion 34" >> "$PLUGINS_PATH/build.gradle"
+            echo "    }" >> "$PLUGINS_PATH/build.gradle"
+            echo "    compileOptions {" >> "$PLUGINS_PATH/build.gradle"
+            echo "        sourceCompatibility JavaVersion.VERSION_17" >> "$PLUGINS_PATH/build.gradle"
+            echo "        targetCompatibility JavaVersion.VERSION_17" >> "$PLUGINS_PATH/build.gradle"
+            echo "    }" >> "$PLUGINS_PATH/build.gradle"
+            echo "}" >> "$PLUGINS_PATH/build.gradle"
+            echo "dependencies {" >> "$PLUGINS_PATH/build.gradle"
+            echo "    implementation 'androidx.appcompat:appcompat:1.6.1'" >> "$PLUGINS_PATH/build.gradle"
+            echo "}" >> "$PLUGINS_PATH/build.gradle"
+          fi
 
           # 3. 修复app模块
-          sed -i '/^android {/a \    compileSdk 34\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' app/build.gradle
+          APP_NAMESPACE=$(grep -o 'package="[^"]*"' app/src/main/AndroidManifest.xml | cut -d'"' -f2)
+          sed -i "/^android {/a \    namespace \"$APP_NAMESPACE\"\n    compileSdk 34\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }" app/build.gradle
 
       # 构建APK
       - name: Build APK
