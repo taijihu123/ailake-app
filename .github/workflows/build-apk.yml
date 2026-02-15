@@ -64,7 +64,16 @@ jobs:
           npx cap sync android
           # Fix Java version in build.gradle
           echo "Fixing Java version in build.gradle..."
-          sed -i 's/buildTypes {/buildTypes {\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n    kotlinOptions {\n        jvmTarget = "17"\n    }/' android/app/build.gradle
+          # Add compileOptions after defaultConfig using a more reliable method
+          awk '/defaultConfig {/,/}/ {print; if ($0 ~ /^\s*}/) {
+              print "\n    compileOptions {"
+              print "        sourceCompatibility JavaVersion.VERSION_17"
+              print "        targetCompatibility JavaVersion.VERSION_17"
+              print "    }"
+              print "    kotlinOptions {"
+              print "        jvmTarget = \"17\""
+              print "    }"
+          }} !/defaultConfig {/,/}/ {print}' android/app/build.gradle > android/app/build.gradle.tmp && mv android/app/build.gradle.tmp android/app/build.gradle
           cat android/app/build.gradle
 
       - name: Build Android APK
