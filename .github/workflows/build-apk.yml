@@ -1,4 +1,4 @@
-name: Build Android APK (最终绝杀版)
+name: Build Android APK (强制编译版本)
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -36,25 +36,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # 核心中的核心：直接找到并替换Capacitor-android的Java版本
-      - name: Force replace Capacitor Java version to 17
+      # 关键：直接在编译时强制指定 Java 17，绕过所有配置文件
+      - name: Build APK with forced Java 17
         working-directory: ./source/ailake-app/android
         run: |
-          # 第一步：找到所有包含sourceCompatibility的文件（不管路径）
-          find . -name "build.gradle" -type f | xargs grep -l "sourceCompatibility" | while read file; do
-            echo "=== 修复文件：$file ==="
-            # 第二步：替换所有21为17
-            sed -i 's/VERSION_21/VERSION_17/g' "$file"
-            sed -i 's/21/17/g' "$file"
-            # 第三步：如果文件里没有compileOptions，就加上
-            if ! grep -q "compileOptions" "$file"; then
-              sed -i '/android {/a \    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$file"
-            fi
-          done
-
-      - name: Build APK
-        working-directory: ./source/ailake-app/android
-        run: ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs=-Xmx3072m
+          ./gradlew assembleDebug \
+            --no-daemon \
+            -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
+            -Dorg.gradle.jvmargs="-Xmx2048m --release 17" \
+            -Porg.gradle.java.version=17 \
+            -Pandroid.compileOptions.sourceCompatibility=17 \
+            -Pandroid.compileOptions.targetCompatibility=17
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
