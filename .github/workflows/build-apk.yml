@@ -45,9 +45,15 @@ jobs:
         working-directory: ./source/ailake-app
         run: |
           # Clean up existing Android directory
-          rm -rf android
-          # Use existing capacitor.config.ts and sync Android platform
+          if [ -d "android" ]; then
+            echo "Removing existing Android directory..."
+            rm -rf android
+          fi
+          # Add Android platform
+          echo "Adding Android platform..."
           npx cap add android
+          # Sync Android platform
+          echo "Syncing Android platform..."
           npx cap sync android
 
       - name: Build Android APK
