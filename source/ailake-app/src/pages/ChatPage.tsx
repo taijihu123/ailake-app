@@ -1,10 +1,239 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// 为浏览器环境添加Buffer支持
+if (typeof window !== 'undefined' && !window.Buffer) {
+  // 使用ES模块导入
+  import('buffer').then(({ Buffer }) => {
+    window.Buffer = Buffer;
+  });
+}
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // 状态管理
+  const [messages, setMessages] = useState<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }>>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // 语音功能状态
+  const [isRecording, setIsRecording] = useState(false);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  
+  // WebSocket连接和音频相关引用
+  const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
+  // WebSocket连接初始化
+  const initWebSocket = () => {
+    try {
+      const wsUrl = 'wss://openspeech.bytedance.com/api/v3/realtime/dialogue';
+      const appId = '1901918589';
+      const accessToken = '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18';
+      
+      // 创建WebSocket连接，添加请求头
+      const ws = new WebSocket(wsUrl);
+      
+      // 连接建立时
+      ws.onopen = () => {
+        console.log('WebSocket连接已建立');
+        setIsWebSocketConnected(true);
+        
+        // 发送初始化消息
+        const initMessage = {
+          type: 'init',
+          data: {
+            app_id: appId,
+            access_token: accessToken,
+            resource_id: 'volc.speech.dialog',
+            app_key: 'PlgvMymc7f3tC...' // 从文档中获取完整的app_key
+          }
+        };
+        ws.send(JSON.stringify(initMessage));
+      };
+      
+      // 接收消息
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('收到WebSocket消息:', message);
+          
+          // 处理不同类型的消息
+          if (message.type === 'result') {
+            // 处理识别/回复结果
+            if (message.data.text) {
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: message.data.text
+              }]);
+            }
+          } else if (message.type === 'audio') {
+            // 处理合成音频
+            if (message.data.audio) {
+              // 播放音频
+              playAudio(message.data.audio);
+            }
+          } else if (message.type === 'error') {
+            // 处理错误
+            console.error('WebSocket错误:', message.data);
+          }
+        } catch (error) {
+          console.error('解析WebSocket消息失败:', error);
+        }
+      };
+      
+      // 连接关闭
+      ws.onclose = () => {
+        console.log('WebSocket连接已关闭');
+        setIsWebSocketConnected(false);
+      };
+      
+      // 连接错误
+      ws.onerror = (error) => {
+        console.error('WebSocket连接错误:', error);
+        setIsWebSocketConnected(false);
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('初始化WebSocket失败:', error);
+    }
+  };
+  
+  // 播放音频
+  const playAudio = (audioData: string) => {
+    try {
+      // 将base64音频数据转换为Blob
+      const audioBlob = new Blob([new Uint8Array(Buffer.from(audioData, 'base64'))], { type: 'audio/wav' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // 创建音频元素并播放
+      const audio = new Audio(audioUrl);
+      audio.play();
+      
+      // 播放完成后释放资源
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+    } catch (error) {
+      console.error('播放音频失败:', error);
+    }
+  };
+  
+  // 开始录音
+  const startRecording = async () => {
+    try {
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      streamRef.current = stream;
+      
+      // 创建音频上下文和分析器
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+        sourceRef.current.connect(analyserRef.current);
+      }
+      
+      // 创建媒体录制器
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      
+      // 录制数据
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      // 录制结束
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        sendAudioToWebSocket(audioBlob);
+      };
+      
+      // 开始录制
+      mediaRecorder.start(100); // 每100ms发送一次数据
+      setIsRecording(true);
+      console.log('开始录音');
+    } catch (error) {
+      console.error('开始录音失败:', error);
+    }
+  };
+  
+  // 停止录音
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log('停止录音');
+    }
+    
+    // 关闭媒体流
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+  
+  // 发送音频到WebSocket
+  const sendAudioToWebSocket = async (audioBlob: Blob) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket未连接');
+      return;
+    }
+    
+    try {
+      // 转换音频格式为PCM
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      
+      // 发送音频数据
+      const audioMessage = {
+        type: 'audio',
+        data: {
+          audio: Array.from(new Uint8Array(arrayBuffer)),
+          format: 'webm'
+        }
+      };
+      
+      wsRef.current.send(JSON.stringify(audioMessage));
+      console.log('发送音频数据');
+    } catch (error) {
+      console.error('发送音频失败:', error);
+    }
+  };
+  
+  // 初始化WebSocket连接
+  useEffect(() => {
+    initWebSocket();
+    
+    // 清理函数
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+  
   // 获取URL参数中的场景类型
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -24,6 +253,45 @@ const ChatPage: React.FC = () => {
       console.log('进入默认场景');
     }
   }, [location.search]);
+  
+  // 发送消息
+  const sendMessage = async () => {
+    if (!inputText.trim() || isLoading) return;
+    
+    // 添加用户消息
+    const newUserMessage = { role: 'user' as const, content: inputText };
+    setMessages(prev => [...prev, newUserMessage]);
+    setInputText('');
+    setIsLoading(true);
+    
+    try {
+      // 调用后端 API
+      const response = await fetch('/api/ailake/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...messages, newUserMessage],
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.content) {
+          // 添加 AI 回复
+          setMessages(prev => [...prev, {
+            role: 'assistant' as const,
+            content: data.content,
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('发送消息失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-100 to-purple-100 flex flex-col">
@@ -51,73 +319,105 @@ const ChatPage: React.FC = () => {
       </header>
 
       {/* 对话核心区 */}
-      <main className="flex-1 flex flex-col items-center justify-center relative">
+      <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* 半透明球体 */}
-        <div className="absolute w-64 h-64 bg-white bg-opacity-30 rounded-full"></div>
+        <div className="absolute w-64 h-64 bg-white bg-opacity-30 rounded-full top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
         
-        {/* 智能体形象 */}
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-32 h-32 bg-white rounded-full mb-4 flex items-center justify-center">
-            {/* AI女形象示意 */}
-            <div className="flex flex-col items-center">
-              {/* 头发 */}
-              <div className="w-16 h-8 bg-black rounded-t-full mb-2"></div>
-              {/* 脸和身体 */}
-              <div className="w-12 h-12 bg-white border-2 border-black rounded-full mb-1"></div>
-              <div className="w-16 h-12 bg-white border-2 border-black rounded-b-lg"></div>
+        {/* 消息列表 */}
+        <div className="flex-1 p-4 overflow-y-auto">
+          {messages.map((message, index) => (
+            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
+              <div className={`max-w-[70%] ${message.role === 'user' ? 'bg-blue-100' : 'bg-white'} p-3 rounded-lg shadow-sm`}>
+                <p className="text-gray-800">{message.content}</p>
+              </div>
             </div>
-          </div>
+          ))}
           
-          {/* 进度指示器和提示文字 */}
-          <div className="flex space-y-4 mb-8">
-            <div className="flex space-x-2 mb-2">
-              <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-              <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-              <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+          {/* 加载状态 */}
+          {isLoading && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-white p-3 rounded-lg shadow-sm">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
             </div>
-            <p className="text-gray-500 text-sm">你可以开始说话</p>
-          </div>
+          )}
+          
+          {/* 初始提示 */}
+          {messages.length === 0 && !isLoading && (
+            <div className="flex flex-col items-center justify-center h-full">
+              {/* 智能体形象 */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-32 h-32 bg-white rounded-full mb-4 flex items-center justify-center">
+                  {/* AI女形象示意 */}
+                  <div className="flex flex-col items-center">
+                    {/* 头发 */}
+                    <div className="w-16 h-8 bg-black rounded-t-full mb-2"></div>
+                    {/* 脸和身体 */}
+                    <div className="w-12 h-12 bg-white border-2 border-black rounded-full mb-1"></div>
+                    <div className="w-16 h-12 bg-white border-2 border-black rounded-b-lg"></div>
+                  </div>
+                </div>
+                
+                {/* 进度指示器和提示文字 */}
+                <div className="flex space-y-4 mb-8">
+                  <div className="flex space-x-2 mb-2">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                  </div>
+                  <p className="text-gray-500 text-sm">你可以开始说话</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* 底部交互区 */}
-      <footer className="p-4">
-        <div className="flex justify-center space-x-6 mb-4">
-          <button className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-            <div className="w-6 h-6 bg-black rounded-full"></div>
+      {/* 底部输入区 */}
+      <footer className="p-4 bg-white border-t">
+        <div className="flex items-center mb-4">
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`p-3 mr-2 ${isRecording ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+          >
+            {isRecording ? '停止录音' : '🎤'}
           </button>
-          <button className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-            <div className="w-6 h-6 bg-black">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 3V21M5 12H19" stroke="black" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-          </button>
-          <button className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-            <div className="w-6 h-6 bg-black">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V5C1 4.46957 1.21071 3.96086 1.58579 3.58579C1.96086 3.21071 2.46957 3 3 3H21C21.5304 3 22.0391 3.21071 22.4142 3.58579C22.7893 3.96086 23 4.46957 23 5V19Z" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 9H9.01" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M15 9H15.01" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 15H15" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-          </button>
-          <button className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-sm"></div>
-            </div>
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="输入消息..."
+            className="flex-1 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!inputText.trim() || isLoading}
+            className={`px-6 py-3 bg-purple-500 text-white rounded-r-lg ${(!inputText.trim() || isLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-600'}`}
+          >
+            发送
           </button>
         </div>
         
+        {/* WebSocket连接状态 */}
+        <div className="text-xs text-gray-500 mb-2">
+          WebSocket连接状态: {isWebSocketConnected ? '已连接' : '未连接'}
+        </div>
+        
         {/* 快捷入口 */}
-        <div className="flex justify-start">
-          <button className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-            <div className="flex space-x-1">
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-            </div>
+        <div className="flex justify-start space-x-2">
+          <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+            学习计划
+          </button>
+          <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+            课程推荐
+          </button>
+          <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+            研究项目
           </button>
         </div>
       </footer>

@@ -2,6 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import avatar from '../assets/images/avatar.jpg';
 
+// 为浏览器环境添加Buffer支持
+if (typeof window !== 'undefined' && !window.Buffer) {
+  // 使用ES模块导入
+  import('buffer').then(({ Buffer }) => {
+    window.Buffer = Buffer;
+  });
+}
+
 const GlobalAgentFloating: React.FC = () => {
   // 功能列表（可无限扩展）
   const functions = [
@@ -23,6 +31,23 @@ const GlobalAgentFloating: React.FC = () => {
   const [messages, setMessages] = useState([
     { id: 1, text: '你好，有什么可以帮你的吗？', sender: 'ai' }
   ]);
+
+  // 语音和视频通话状态
+  const [isRecording, setIsRecording] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  
+  // WebSocket连接和音视频相关引用
+  const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // 自动滚动到最新消息
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,6 +81,243 @@ const GlobalAgentFloating: React.FC = () => {
     setCurrentIndex(prev => (prev === functions.length - 1 ? 0 : prev + 1));
   };
 
+  // WebSocket连接初始化
+  const initWebSocket = () => {
+    try {
+      const wsUrl = 'wss://openspeech.bytedance.com/api/v3/realtime/dialogue';
+      const appId = '1901918589';
+      const accessToken = '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18';
+      
+      // 创建WebSocket连接
+      const ws = new WebSocket(wsUrl);
+      
+      // 连接建立时
+      ws.onopen = () => {
+        console.log('WebSocket连接已建立');
+        setIsWebSocketConnected(true);
+        
+        // 发送初始化消息
+        const initMessage = {
+          type: 'init',
+          data: {
+            app_id: appId,
+            access_token: accessToken,
+            resource_id: 'volc.speech.dialog',
+            app_key: 'PlgvMymc7f3tC...' // 从文档中获取完整的app_key
+          }
+        };
+        ws.send(JSON.stringify(initMessage));
+      };
+      
+      // 接收消息
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('收到WebSocket消息:', message);
+          
+          // 处理不同类型的消息
+          if (message.type === 'result') {
+            // 处理识别/回复结果
+            if (message.data.text) {
+              setMessages(prev => [...prev, {
+                id: prev.length + 1,
+                text: message.data.text,
+                sender: 'ai'
+              }]);
+            }
+          } else if (message.type === 'audio') {
+            // 处理合成音频
+            if (message.data.audio) {
+              // 播放音频
+              playAudio(message.data.audio);
+            }
+          } else if (message.type === 'error') {
+            // 处理错误
+            console.error('WebSocket错误:', message.data);
+          }
+        } catch (error) {
+          console.error('解析WebSocket消息失败:', error);
+        }
+      };
+      
+      // 连接关闭
+      ws.onclose = () => {
+        console.log('WebSocket连接已关闭');
+        setIsWebSocketConnected(false);
+      };
+      
+      // 连接错误
+      ws.onerror = (error) => {
+        console.error('WebSocket连接错误:', error);
+        setIsWebSocketConnected(false);
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('初始化WebSocket失败:', error);
+    }
+  };
+  
+  // 播放音频
+  const playAudio = (audioData: string) => {
+    try {
+      // 将base64音频数据转换为Blob
+      const audioBlob = new Blob([new Uint8Array(Buffer.from(audioData, 'base64'))], { type: 'audio/wav' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // 创建音频元素并播放
+      const audio = new Audio(audioUrl);
+      audio.play();
+      
+      // 播放完成后释放资源
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+    } catch (error) {
+      console.error('播放音频失败:', error);
+    }
+  };
+  
+  // 开始录音
+  const startRecording = async () => {
+    try {
+      // 确保WebSocket已连接
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        initWebSocket();
+        // 等待连接建立
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      streamRef.current = stream;
+      
+      // 创建音频上下文和分析器
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+        sourceRef.current.connect(analyserRef.current);
+      }
+      
+      // 创建媒体录制器
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      
+      // 录制数据
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      // 录制结束
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        sendAudioToWebSocket(audioBlob);
+      };
+      
+      // 开始录制
+      mediaRecorder.start(100); // 每100ms发送一次数据
+      setIsRecording(true);
+      console.log('开始录音');
+    } catch (error) {
+      console.error('开始录音失败:', error);
+    }
+  };
+  
+  // 停止录音
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log('停止录音');
+    }
+    
+    // 关闭媒体流
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+  
+  // 发送音频到WebSocket
+  const sendAudioToWebSocket = async (audioBlob: Blob) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket未连接');
+      return;
+    }
+    
+    try {
+      // 转换音频格式为PCM
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      
+      // 发送音频数据
+      const audioMessage = {
+        type: 'audio',
+        data: {
+          audio: Array.from(new Uint8Array(arrayBuffer)),
+          format: 'webm'
+        }
+      };
+      
+      wsRef.current.send(JSON.stringify(audioMessage));
+      console.log('发送音频数据');
+    } catch (error) {
+      console.error('发送音频失败:', error);
+    }
+  };
+  
+  // 开始视频通话
+  const startVideoCall = async () => {
+    try {
+      // 请求摄像头和麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      streamRef.current = stream;
+      
+      // 显示本地视频
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      
+      // 确保WebSocket已连接
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        initWebSocket();
+      }
+      
+      setIsInCall(true);
+      setIsVideoEnabled(true);
+      console.log('开始视频通话');
+    } catch (error) {
+      console.error('开始视频通话失败:', error);
+    }
+  };
+  
+  // 停止视频通话
+  const stopVideoCall = () => {
+    // 关闭媒体流
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    // 停止本地视频
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    // 停止远程视频
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    
+    setIsInCall(false);
+    setIsVideoEnabled(false);
+    console.log('停止视频通话');
+  };
+  
   // 发送消息
   const sendMessage = () => {
     if (inputText.trim()) {
@@ -74,6 +336,26 @@ const GlobalAgentFloating: React.FC = () => {
       }, 1000);
     }
   };
+  
+  // 初始化WebSocket连接
+  useEffect(() => {
+    initWebSocket();
+    
+    // 清理函数
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
   const floatingContent = (
     <div>
@@ -232,38 +514,137 @@ const GlobalAgentFloating: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* 输入框 */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="输入消息..."
-                style={{
-                  flex: 1,
-                  padding: '10px 16px',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                }}
-              />
-              <button
-                onClick={sendMessage}
-                style={{
-                  padding: '10px 20px',
-                  background: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
-              >
-                发送
-              </button>
-            </div>
+            {/* 音视频通话控制区 */}
+            {functions[currentIndex].id === 'voice' && (
+              <div style={{ padding: '12px', background: '#f9f9f9', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+                  <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    style={{
+                      padding: '12px 24px',
+                      background: isRecording ? '#f44336' : '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {isRecording ? '停止录音' : '开始录音'}
+                  </button>
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                  WebSocket状态: {isWebSocketConnected ? '已连接' : '未连接'}
+                </div>
+              </div>
+            )}
+            
+            {/* 视频通话控制区 */}
+            {functions[currentIndex].id === 'video' && (
+              <div>
+                {isInCall ? (
+                  <div>
+                    {/* 视频显示区域 */}
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                      <div style={{ flex: 1, aspectRatio: 16/9, background: '#f0f0f0', borderRadius: '8px', overflow: 'hidden' }}>
+                        <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted></video>
+                      </div>
+                      <div style={{ flex: 1, aspectRatio: 16/9, background: '#f0f0f0', borderRadius: '8px', overflow: 'hidden' }}>
+                        <video ref={remoteVideoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay></video>
+                      </div>
+                    </div>
+                    
+                    {/* 视频控制按钮 */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                      <button
+                        onClick={() => setIsVideoEnabled(!isVideoEnabled)}
+                        style={{
+                          padding: '10px 20px',
+                          background: isVideoEnabled ? '#4CAF50' : '#f0f0f0',
+                          color: isVideoEnabled ? 'white' : '#333',
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        {isVideoEnabled ? '关闭视频' : '开启视频'}
+                      </button>
+                      <button
+                        onClick={stopVideoCall}
+                        style={{
+                          padding: '10px 20px',
+                          background: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        结束通话
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '24px', textAlign: 'center', background: '#f9f9f9', borderRadius: '8px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📹</div>
+                    <p style={{ marginBottom: '24px', color: '#666' }}>点击开始按钮发起视频通话</p>
+                    <button
+                      onClick={startVideoCall}
+                      style={{
+                        padding: '12px 24px',
+                        background: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      开始视频通话
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* 文本输入区 */}
+            {(functions[currentIndex].id === 'text' || functions[currentIndex].id === 'teach' || functions[currentIndex].id === 'code' || functions[currentIndex].id === 'project') && (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="输入消息..."
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                  }}
+                />
+                <button
+                  onClick={sendMessage}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  发送
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
