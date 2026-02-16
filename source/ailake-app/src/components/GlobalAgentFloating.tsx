@@ -22,7 +22,7 @@ const GlobalAgentFloating: React.FC = () => {
   ];
 
   // 当前功能索引
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex] = useState(0);
   // 对话框显示状态
   const [isDialogVisible, setIsDialogVisible] = useState(false);
   // 输入框内容
@@ -75,13 +75,7 @@ const GlobalAgentFloating: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 切换功能
-  const prevFunction = () => {
-    setCurrentIndex(prev => (prev === 0 ? functions.length - 1 : prev - 1));
-  };
-  const nextFunction = () => {
-    setCurrentIndex(prev => (prev === functions.length - 1 ? 0 : prev + 1));
-  };
+
 
   // WebSocket连接初始化
   const initWebSocket = () => {
@@ -472,43 +466,22 @@ const GlobalAgentFloating: React.FC = () => {
               gap: '16px',
             }}
           >
-            {/* 顶部功能切换栏（箭头+功能名） */}
+            {/* 顶部功能显示栏（功能名+灰色文字说明） */}
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'space-between',
                 paddingBottom: '12px',
                 borderBottom: '1px solid #f0f0f0',
               }}
             >
-              <button
-                onClick={prevFunction}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  color: '#666',
-                }}
-              >
-                ↑
-              </button>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: '#333' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
                 {functions[currentIndex].icon} {functions[currentIndex].label}
               </div>
-              <button
-                onClick={nextFunction}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  color: '#666',
-                }}
-              >
-                ↓
-              </button>
+              <div style={{ fontSize: '12px', color: '#999' }}>
+                点击头像切换功能
+              </div>
             </div>
 
             {/* 字幕显示区域 */}

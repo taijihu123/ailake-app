@@ -9,28 +9,7 @@
   box-sizing: border-box;
 }
 
-/* 顶部状态栏 */
-.login-status-bar {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
-}
 
-.login-time {
-  font-size: 14px;
-  color: #666666;
-}
-
-.login-status-icons {
-  display: flex;
-  gap: 8px;
-}
-
-.login-status-icon {
-  font-size: 14px;
-}
 
 /* Logo 容器 */
 .login-logo {

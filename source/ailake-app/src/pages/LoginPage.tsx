@@ -29,14 +29,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="login-page-container">
-      {/* 顶部状态栏 */}
-      <div className="login-status-bar">
-        <div className="login-time">11:48</div>
-        <div className="login-status-icons">
-          <span className="login-status-icon">📶</span>
-          <span className="login-status-icon">🔋</span>
-        </div>
-      </div>
+
 
       {/* Logo 区域 */}
       <div className="login-logo">

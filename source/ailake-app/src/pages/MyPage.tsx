@@ -88,12 +88,6 @@ const MyPage: React.FC = () => {
       {/* 顶部极简用户栏：仅保留头像+用户名，不干扰功能区 */}
       <div className="bg-green-600 text-white p-4">
         <div className="flex items-center">
-          <button 
-            onClick={() => navigate(-1)}
-            className="mr-4 text-white"
-          >
-            ← 返回
-          </button>
           <img 
             src={userData.avatar} 
             className="w-12 h-12 rounded-full mr-3 border-2 border-white" 
