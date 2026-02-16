@@ -86,8 +86,8 @@ const GlobalAgentFloating: React.FC = () => {
   // WebSocket连接初始化
   const initWebSocket = () => {
     try {
-      // 使用本地后端代理地址
-      const wsUrl = 'ws://localhost:5174/api/v3/realtime/dialogue';
+      // 使用相对路径，通过 Vite 代理连接到后端
+      const wsUrl = 'ws://localhost:5001/api/v3/realtime/dialogue';
       const appId = '1901918589';
       const accessToken = '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18';
       setIsSpeaking(true);

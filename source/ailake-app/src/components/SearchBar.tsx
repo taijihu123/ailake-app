@@ -17,7 +17,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearchResults }) => {
     setError('');
 
     try {
-      const response = await api.vector.search(query);
+      // 搜索所有类型的空间，包括基础空间、用户空间和项目空间
+      const spaceTypes = ["basic_teaching", "basic_lab", "basic_agent", "user_notes", "user_growth", "project_docs", "project_eval", "eval_learning", "eval_outcome"];
+      const response = await api.vector.search(query, 5, spaceTypes);
       onSearchResults(response.data.results);
     } catch (err: any) {
       setError(err.message || '搜索失败，请稍后重试');
