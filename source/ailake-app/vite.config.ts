@@ -14,7 +14,7 @@ import react from "@vitejs/plugin-react"
     proxy: {
       // 将所有 /api 开头的请求代理到后端
       '/api': {
-        target: 'http://8.159.143.90:5001',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api')
