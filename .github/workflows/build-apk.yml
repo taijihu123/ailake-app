@@ -32,8 +32,9 @@ jobs:
         run: |
           npm install --legacy-peer-deps
           npm run build
-          rm -rf android
-          npx cap add android
+          # 注意：不要删除 android 目录，因为它已经包含了核心配置文件
+          # rm -rf android
+          # npx cap add android
           npx cap sync android
 
       # 核心：修复所有模块的namespace和Java版本
@@ -108,5 +109,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ailake-app-debug
-          path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ./source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
