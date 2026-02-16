@@ -1,4 +1,4 @@
-name: Build Android APK (全模块namespace修复版)
+name: Build Android APK
 on:
   push: { branches: [main] }
   workflow_dispatch:
@@ -41,7 +41,6 @@ jobs:
         working-directory: ./source/ailake-app/android
         run: |
           # 1. 修复capacitor-android模块
-          # Capacitor 7.6.0 已兼容 Java 17，无需修改源文件
           CAPACITOR_PATH=$(find . -name "capacitor-android" -type d)
           if [ -n "$CAPACITOR_PATH" ]; then
             echo "修复capacitor-android: $CAPACITOR_PATH"
@@ -65,14 +64,14 @@ jobs:
             echo "}" >> "$CAPACITOR_PATH/build.gradle"
           fi
 
-          # 2. 修复capacitor-cordova-android-plugins模块（新增）
+          # 2. 修复capacitor-cordova-android-plugins模块
           PLUGINS_PATH=$(find . -name "capacitor-cordova-android-plugins" -type d)
           if [ -n "$PLUGINS_PATH" ]; then
             echo "修复插件模块: $PLUGINS_PATH"
             echo "apply plugin: 'com.android.library'" > "$PLUGINS_PATH/build.gradle"
             echo "" >> "$PLUGINS_PATH/build.gradle"
             echo "android {" >> "$PLUGINS_PATH/build.gradle"
-            echo "    namespace \"com.getcapacitor.cordova.plugins\"" >> "$PLUGINS_PATH/build.gradle" # 插件默认namespace
+            echo "    namespace \"com.getcapacitor.cordova.plugins\"" >> "$PLUGINS_PATH/build.gradle"
             echo "    compileSdkVersion 34" >> "$PLUGINS_PATH/build.gradle"
             echo "    buildToolsVersion \"34.0.0\"" >> "$PLUGINS_PATH/build.gradle"
             echo "    defaultConfig {" >> "$PLUGINS_PATH/build.gradle"
@@ -97,8 +96,6 @@ jobs:
       - name: Build APK
         working-directory: ./source/ailake-app/android
         run: |
-          # 核心：强制覆盖所有模块的Java编译版本，无视源码中的硬编码配置
-          # 添加 --warning-mode all 查看所有弃用警告，帮助排查问题
           ./gradlew assembleDebug --no-daemon --warning-mode all \
             -Dorg.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64 \
             -Dorg.gradle.jvmargs=-Xmx2048m \
