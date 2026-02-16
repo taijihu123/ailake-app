@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --chat-widget-z-index: 9999;
+  --chat-widget-left: auto;
+  --chat-widget-right: 20px;
+  --chat-widget-width: 320px;
+  --chat-widget-height: 480px;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 动画效果 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 主题颜色类 */
+.text-ailake-green-500 {
+  color: #22c55e;
+}
+
+.hover\:text-ailake-green-500:hover {
+  color: #22c55e;
+}
+
+.bg-ailake-green-500 {
+  background-color: #22c55e;
+}
+
+.hover\:bg-ailake-green-600:hover {
+  background-color: #16a34a;
+}
+
+.from-ailake-green-400 {
+  --tw-gradient-from: #4ade80;
+}
+
+.to-ailake-green-500 {
+  --tw-gradient-to: #22c55e;
+}
+
+.from-ailake-green-100 {
+  --tw-gradient-from: #dcfce7;
+}
+
+.to-ailake-green-200 {
+  --tw-gradient-to: #bbf7d0;
+}
+
+.from-ailake-blue-400 {
+  --tw-gradient-from: #60a5fa;
+}
+
+.to-ailake-blue-500 {
+  --tw-gradient-to: #3b82f6;
+}
+
+.from-ailake-blue-100 {
+  --tw-gradient-from: #dbeafe;
+}
+
+.to-ailake-blue-200 {
+  --tw-gradient-to: #bfdbfe;
+}
+
+.bg-ailake-blue-500 {
+  background-color: #3b82f6;
+}
+
+.hover\:bg-ailake-blue-600:hover {
+  background-color: #2563eb;
+}
+
+.text-ailake-blue-500 {
+  color: #3b82f6;
+}
+
+.hover\:text-ailake-blue-500:hover {
+  color: #3b82f6;
+}
