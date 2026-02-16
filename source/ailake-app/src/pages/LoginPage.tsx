@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/images/logo.jpg';
 import '../styles/LoginPage.css';
@@ -25,11 +25,7 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleSocialLogin = (type: string) => {
-    // 社交登录逻辑
-    console.log('Social login with:', type);
-    navigate('/home');
-  };
+
 
   return (
     <div className="login-page-container">
