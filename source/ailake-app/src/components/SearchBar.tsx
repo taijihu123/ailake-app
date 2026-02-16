@@ -17,7 +17,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearchResults }) => {
     setError('');
 
     try {
-      const response = await api.knowledge.search(query);
+      const response = await api.vector.search(query);
       onSearchResults(response.data.results);
     } catch (err: any) {
       setError(err.message || '搜索失败，请稍后重试');

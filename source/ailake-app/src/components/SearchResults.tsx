@@ -1,13 +1,15 @@
 import React from 'react';
 
-interface SearchResult {
-  id: string;
-  score: number;
+interface VectorSearchResult {
+  content: string;
   metadata: any;
+  space_type: string;
+  distance: number;
+  weighted_score: number;
 }
 
 interface SearchResultsProps {
-  results: SearchResult[];
+  results: VectorSearchResult[];
   loading: boolean;
 }
 
@@ -36,23 +38,24 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, loading }) => {
       </h3>
       <div className="space-y-4">
         {results.map((result, index) => (
-          <div key={result.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+          <div key={index} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
             <div className="flex justify-between items-start mb-2">
               <h4 className="font-medium text-green-700">
-                {result.metadata.title || `文档 ${index + 1}`}
+                {result.metadata.title || result.metadata.name || `文档 ${index + 1}`}
               </h4>
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                相似度: {Math.round(result.score * 100)}%
+                相似度: {Math.round((1 - result.distance) * 100)}%
               </span>
             </div>
             <p className="text-gray-600 text-sm mb-2">
-              {result.metadata.content || '无内容描述'}
+              {result.content.substring(0, 150)}...
             </p>
-            {result.metadata.author && (
-              <p className="text-gray-500 text-xs">
-                作者: {result.metadata.author}
-              </p>
-            )}
+            <div className="flex justify-between items-center text-xs text-gray-500">
+              <span>来源: {result.space_type}</span>
+              {result.metadata.author && (
+                <span>作者: {result.metadata.author}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>

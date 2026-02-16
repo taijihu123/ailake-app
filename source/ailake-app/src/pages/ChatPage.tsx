@@ -20,6 +20,8 @@ const ChatPage: React.FC = () => {
   }>>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingContent, setThinkingContent] = useState('');
   
   // 语音功能状态
   const [isRecording, setIsRecording] = useState(false);
@@ -37,11 +39,10 @@ const ChatPage: React.FC = () => {
   // WebSocket连接初始化
   const initWebSocket = () => {
     try {
-      const wsUrl = 'wss://openspeech.bytedance.com/api/v3/realtime/dialogue';
-      const appId = '1901918589';
-      const accessToken = '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18';
+      // 连接到本地后端代理地址
+      const wsUrl = 'ws://localhost:5001/api/v3/realtime/dialogue';
       
-      // 创建WebSocket连接，添加请求头
+      // 创建WebSocket连接
       const ws = new WebSocket(wsUrl);
       
       // 连接建立时
@@ -53,10 +54,9 @@ const ChatPage: React.FC = () => {
         const initMessage = {
           type: 'init',
           data: {
-            app_id: appId,
-            access_token: accessToken,
-            resource_id: 'volc.speech.dialog',
-            app_key: 'PlgvMymc7f3tC...' // 从文档中获取完整的app_key
+            app_id: '1901918589',
+            access_token: '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18',
+            resource_id: 'volc.speech.dialog'
           }
         };
         ws.send(JSON.stringify(initMessage));
@@ -72,6 +72,9 @@ const ChatPage: React.FC = () => {
           if (message.type === 'result') {
             // 处理识别/回复结果
             if (message.data.text) {
+              // 将语音识别结果显示在输入框
+              setInputText(message.data.text);
+              // 同时添加到消息列表
               setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: message.data.text
@@ -86,6 +89,35 @@ const ChatPage: React.FC = () => {
           } else if (message.type === 'error') {
             // 处理错误
             console.error('WebSocket错误:', message.data);
+          } else if (message.type === 'ai_response') {
+            // 处理AI思考和响应
+            if (message.is_thinking) {
+              // 更新思考内容
+              setThinkingContent(prev => prev + message.content);
+            } else {
+              // 更新AI回复
+              setMessages(prev => {
+                // 检查最后一条消息是否是assistant类型
+                if (prev.length > 0 && prev[prev.length - 1].role === 'assistant') {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    ...newMessages[newMessages.length - 1],
+                    content: newMessages[newMessages.length - 1].content + message.content
+                  };
+                  return newMessages;
+                } else {
+                  // 如果没有assistant消息，添加一条新的
+                  return [...prev, {
+                    role: 'assistant' as const,
+                    content: message.content
+                  }];
+                }
+              });
+            }
+          } else if (message.type === 'ai_done') {
+            // 处理AI思考完成
+            setIsThinking(false);
+            setThinkingContent('');
           }
         } catch (error) {
           console.error('解析WebSocket消息失败:', error);
@@ -262,34 +294,39 @@ const ChatPage: React.FC = () => {
     const newUserMessage = { role: 'user' as const, content: inputText };
     setMessages(prev => [...prev, newUserMessage]);
     setInputText('');
-    setIsLoading(true);
+    setIsThinking(true);
+    setThinkingContent('');
     
     try {
-      // 调用后端 API
+      // 发送消息到后端
       const response = await fetch('/api/ailake/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          messages: [...messages, newUserMessage],
-        }),
+          messages: [
+            { role: 'user', content: inputText }
+          ]
+        })
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.content) {
-          // 添加 AI 回复
-          setMessages(prev => [...prev, {
-            role: 'assistant' as const,
-            content: data.content,
-          }]);
-        }
+      if (!response.ok) {
+        throw new Error('发送消息失败');
       }
+      
+      const result = await response.json();
+      console.log('后端回复:', result);
     } catch (error) {
       console.error('发送消息失败:', error);
+      // 显示错误消息
+      setMessages(prev => [...prev, {
+        role: 'assistant' as const,
+        content: '抱歉，发送消息失败，请稍后重试。'
+      }]);
     } finally {
-      setIsLoading(false);
+      // 注意：由于使用了WebSocket流式响应，这里不需要手动设置isThinking为false
+      // 后端会通过WebSocket发送ai_done事件来通知前端思考完成
     }
   };
 
@@ -333,6 +370,21 @@ const ChatPage: React.FC = () => {
             </div>
           ))}
           
+          {/* DeepSeek 思考状态 */}
+          {isThinking && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-start">
+                  <div className="text-gray-500 mr-2">🤔</div>
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium mb-1">DeepSeek 思考中...</p>
+                    <p className="text-gray-500 text-sm">{thinkingContent}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* 加载状态 */}
           {isLoading && (
             <div className="flex justify-start mb-4">
@@ -347,7 +399,7 @@ const ChatPage: React.FC = () => {
           )}
           
           {/* 初始提示 */}
-          {messages.length === 0 && !isLoading && (
+          {messages.length === 0 && !isLoading && !isThinking && (
             <div className="flex flex-col items-center justify-center h-full">
               {/* 智能体形象 */}
               <div className="relative z-10 flex flex-col items-center">
@@ -379,6 +431,18 @@ const ChatPage: React.FC = () => {
 
       {/* 底部输入区 */}
       <footer className="p-4 bg-white border-t">
+        {/* 底部控制栏 - 上下箭头和标题 */}
+        <div className="flex justify-between items-center mb-4">
+          <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
+            ↑
+          </button>
+          <span className="text-gray-700 font-medium">教学辅导</span>
+          <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
+            ↓
+          </button>
+        </div>
+        
+        {/* 输入区域 */}
         <div className="flex items-center mb-4">
           <button
             onClick={isRecording ? stopRecording : startRecording}

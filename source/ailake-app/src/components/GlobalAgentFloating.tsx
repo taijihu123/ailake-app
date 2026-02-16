@@ -37,6 +37,8 @@ const GlobalAgentFloating: React.FC = () => {
   const [isInCall, setIsInCall] = useState(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [subtitles, setSubtitles] = useState('你好，有什么可以帮你的吗？');
   
   // WebSocket连接和音视频相关引用
   const wsRef = useRef<WebSocket | null>(null);
@@ -84,9 +86,13 @@ const GlobalAgentFloating: React.FC = () => {
   // WebSocket连接初始化
   const initWebSocket = () => {
     try {
-      const wsUrl = 'wss://openspeech.bytedance.com/api/v3/realtime/dialogue';
+      // 使用本地后端代理地址
+      const wsUrl = 'ws://localhost:5174/api/v3/realtime/dialogue';
       const appId = '1901918589';
       const accessToken = '9Pp0y97idKKwXlVkhMz-F-iMemXWuD18';
+      setIsSpeaking(true);
+      
+      console.log('正在建立WebSocket连接:', wsUrl);
       
       // 创建WebSocket连接
       const ws = new WebSocket(wsUrl);
@@ -106,6 +112,7 @@ const GlobalAgentFloating: React.FC = () => {
             app_key: 'PlgvMymc7f3tC...' // 从文档中获取完整的app_key
           }
         };
+        console.log('发送初始化消息:', initMessage);
         ws.send(JSON.stringify(initMessage));
       };
       
@@ -124,6 +131,13 @@ const GlobalAgentFloating: React.FC = () => {
                 text: message.data.text,
                 sender: 'ai'
               }]);
+              // 更新字幕
+              setSubtitles(message.data.text);
+            }
+          } else if (message.type === 'transcript') {
+            // 处理实时转录结果
+            if (message.data.text) {
+              setSubtitles(prev => prev + ' ' + message.data.text);
             }
           } else if (message.type === 'audio') {
             // 处理合成音频
@@ -134,9 +148,11 @@ const GlobalAgentFloating: React.FC = () => {
           } else if (message.type === 'error') {
             // 处理错误
             console.error('WebSocket错误:', message.data);
+            setIsSpeaking(false);
           }
         } catch (error) {
           console.error('解析WebSocket消息失败:', error);
+          setIsSpeaking(false);
         }
       };
       
@@ -144,12 +160,14 @@ const GlobalAgentFloating: React.FC = () => {
       ws.onclose = () => {
         console.log('WebSocket连接已关闭');
         setIsWebSocketConnected(false);
+        setIsSpeaking(false);
       };
       
       // 连接错误
       ws.onerror = (error) => {
         console.error('WebSocket连接错误:', error);
         setIsWebSocketConnected(false);
+        setIsSpeaking(false);
       };
       
       wsRef.current = ws;
@@ -187,6 +205,7 @@ const GlobalAgentFloating: React.FC = () => {
         // 等待连接建立
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
+      setIsSpeaking(true);
       
       // 请求麦克风权限
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -232,6 +251,7 @@ const GlobalAgentFloating: React.FC = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsSpeaking(false);
       console.log('停止录音');
     }
     
@@ -361,7 +381,8 @@ const GlobalAgentFloating: React.FC = () => {
     <div>
       {/* 添加CSS动画样式 */}
       <style>
-        {`
+        {
+          `
           @keyframes float {
             0% {
               transform: translateY(0px);
@@ -373,7 +394,18 @@ const GlobalAgentFloating: React.FC = () => {
               transform: translateY(0px);
             }
           }
-        `}
+          
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+          }
+          
+          .speaking {
+            animation: pulse 1s infinite;
+          }
+          `
+        }
       </style>
       <div
         style={{
@@ -388,6 +420,7 @@ const GlobalAgentFloating: React.FC = () => {
         <div
           ref={avatarRef}
           onClick={() => setIsDialogVisible(!isDialogVisible)}
+          className={isSpeaking ? 'speaking' : ''}
           style={{
             width: '64px',
             height: '64px',
@@ -397,7 +430,7 @@ const GlobalAgentFloating: React.FC = () => {
             overflow: 'hidden',
             userSelect: 'none',
             boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            animation: 'float 3s ease-in-out infinite', // 自动上下浮动
+            animation: isSpeaking ? 'pulse 1s infinite' : 'float 3s ease-in-out infinite', // 说话时脉冲动画，否则浮动动画
             cursor: 'pointer'
           }}
         >
@@ -478,6 +511,16 @@ const GlobalAgentFloating: React.FC = () => {
               </button>
             </div>
 
+            {/* 字幕显示区域 */}
+            {(functions[currentIndex].id === 'voice' || functions[currentIndex].id === 'video') && (
+              <div style={{ padding: '12px', background: '#f9f9f9', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>实时字幕</div>
+                <div style={{ fontSize: '14px', color: '#333', minHeight: '40px', lineHeight: '1.4' }}>
+                  {subtitles}
+                </div>
+              </div>
+            )}
+            
             {/* 聊天内容区域（可滚动） */}
             <div
               style={{

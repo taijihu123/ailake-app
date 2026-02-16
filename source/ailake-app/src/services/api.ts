@@ -92,6 +92,12 @@ export const api = {
     getStats: () => instance.get('/knowledge/stats'),
   },
   
+  // 向量搜索
+  vector: {
+    search: (query: string, nResults = 5, spaceTypes?: string[], userId?: string, projectId?: string) => 
+      instance.post('/vector/search', { query, n_results: nResults, space_types: spaceTypes, user_id: userId, project_id: projectId }),
+  },
+  
   // 钱包
   wallet: {
     getBalance: (userId: string) => instance.get('/wallet/balance', { params: { user_id: userId } }),

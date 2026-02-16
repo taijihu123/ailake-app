@@ -5,20 +5,22 @@ import avatar from '../assets/images/avatar.jpg';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 
-interface SearchResult {
-  id: string;
-  score: number;
+interface VectorSearchResult {
+  content: string;
   metadata: any;
+  space_type: string;
+  distance: number;
+  weighted_score: number;
 }
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<VectorSearchResult[]>([]);
   const [isSearching] = useState(false);
   
 
 
-  const handleSearchResults = (results: SearchResult[]) => {
+  const handleSearchResults = (results: VectorSearchResult[]) => {
     setSearchResults(results);
   };
 
