@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api';
+// 配置 API 基础 URL
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'http://8.159.143.90:5001/api' // 生产环境：云服务器 API 地址
+  : '/api'; // 开发环境：Vite 代理地址
 
 const instance = axios.create({
   baseURL: API_BASE_URL,

@@ -21,11 +21,14 @@ const CoursesPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+        // 添加更多的错误处理和日志
+        console.log('开始获取课程数据...');
         const response = await api.ailake.getCourses();
+        console.log('获取课程数据成功:', response.data);
         setCourses(response.data.courses);
       } catch (err) {
-        setError('获取课程列表失败');
         console.error('获取课程失败:', err);
+        setError('获取课程列表失败，请检查网络连接');
       } finally {
         setLoading(false);
       }
