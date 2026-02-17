@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import avatar from '../assets/images/avatar.jpg';
+import AssessmentDialog from './AssessmentDialog';
+import { AssessmentDimension } from '../types/assessment';
+import { assessmentService } from '../services/assessmentService';
 
 // 为浏览器环境添加Buffer支持
 if (typeof window !== 'undefined' && !window.Buffer) {
@@ -39,6 +42,12 @@ const GlobalAgentFloating: React.FC = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [subtitles, setSubtitles] = useState('你好，有什么可以帮你的吗？');
+
+  // 测评相关状态
+  const [isAssessmentVisible, setIsAssessmentVisible] = useState(false);
+  const [currentAssessmentDimension, setCurrentAssessmentDimension] = useState<AssessmentDimension>('knowledgeStructure');
+  const [userId] = useState('user-123'); // 模拟用户ID
+  const [assessmentTriggered, setAssessmentTriggered] = useState(false);
   
   // WebSocket连接和音视频相关引用
   const wsRef = useRef<WebSocket | null>(null);
@@ -338,6 +347,36 @@ const GlobalAgentFloating: React.FC = () => {
       const newUserMsg = { id: messages.length + 1, text: inputText, sender: 'user' };
       setMessages(prev => [...prev, newUserMsg]);
       setInputText('');
+
+      // 记录用户行为
+      const behaviorData = {
+        type: 'query',
+        dimension: 'knowledgeStructure' as const,
+        weight: 0.5,
+        details: {
+          text: inputText,
+          functionId: functions[currentIndex].id
+        }
+      };
+      assessmentService.recordUserBehavior(userId, behaviorData);
+
+      // 检查是否触发测评
+      if (!assessmentTriggered) {
+        // 使用测评服务的触发检查
+        if (assessmentService.checkAssessmentTriggers(userId, behaviorData)) {
+          const recommendedDimension = assessmentService.getRecommendedDimension(userId);
+          setCurrentAssessmentDimension(recommendedDimension);
+          setIsAssessmentVisible(true);
+          setAssessmentTriggered(true);
+        } else {
+          // 简单的触发逻辑：当用户发送包含特定关键词的消息时触发
+          if (inputText.includes('推荐') || inputText.includes('学习') || inputText.includes('工具')) {
+            setCurrentAssessmentDimension('knowledgeStructure');
+            setIsAssessmentVisible(true);
+            setAssessmentTriggered(true);
+          }
+        }
+      }
 
       // 模拟AI回复
       setTimeout(() => {
@@ -667,8 +706,43 @@ const GlobalAgentFloating: React.FC = () => {
     </div>
   );
 
+  // 测评完成回调
+  const handleAssessmentComplete = () => {
+    // 获取测评结果
+    const result = assessmentService.getAssessmentResult(userId);
+    if (result) {
+      // 获取当前维度的结果
+      const currentDimensionResult = result.dimensions[currentAssessmentDimension];
+      const tags = currentDimensionResult.tags.map(tag => tag.name).join('、');
+      
+      // 构建详细的测评结果消息
+      const resultMessage = {
+        id: messages.length + 1,
+        text: `🎉 测评完成！\n\n你的${currentAssessmentDimension === 'knowledgeStructure' ? '知识结构' : currentAssessmentDimension === 'personality' ? '人格特点' : '社会适应能力'}评估结果：\n• 得分：${currentDimensionResult.score.toFixed(1)}\n• 标签：${tags}\n\n${result.recommendations.map((rec, index) => `${index + 1}. ${rec}`).join('\n')}`,
+        sender: 'ai'
+      };
+      setMessages(prev => [...prev, resultMessage]);
+      
+      // 重置测评触发状态，允许后续再次触发测评
+      setTimeout(() => {
+        setAssessmentTriggered(false);
+      }, 30000); // 30秒后允许再次触发
+    }
+  };
+
   // 使用Portal将悬浮组件挂载到body下
-  return createPortal(floatingContent, document.body);
+  return (
+    <>
+      {createPortal(floatingContent, document.body)}
+      <AssessmentDialog
+        open={isAssessmentVisible}
+        onOpenChange={setIsAssessmentVisible}
+        dimension={currentAssessmentDimension}
+        userId={userId}
+        onComplete={handleAssessmentComplete}
+      />
+    </>
+  );
 };
 
 export default GlobalAgentFloating;
