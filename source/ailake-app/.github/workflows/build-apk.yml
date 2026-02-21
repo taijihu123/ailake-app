@@ -55,7 +55,7 @@ jobs:
       run: |
         cd android
         chmod +x gradlew
-        ./gradlew assembleRelease --stacktrace
+        ./gradlew clean assembleRelease --stacktrace
       env:
         KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
