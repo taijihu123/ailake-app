@@ -7,6 +7,10 @@
     "buildOptions": {
       "sourceCompatibility": "17",
       "targetCompatibility": "17"
-    }
+    },
+    "icon": "src/assets/images/avatar.jpg"
+  },
+  "ios": {
+    "icon": "src/assets/images/avatar.jpg"
   }
 }
