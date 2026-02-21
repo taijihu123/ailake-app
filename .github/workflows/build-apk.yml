@@ -51,13 +51,46 @@ jobs:
           sed -i '/compileOptions {/!b;n;c\        sourceCompatibility JavaVersion.VERSION_17' android/app/build.gradle
           sed -i '/compileOptions {/!b;n;n;c\        targetCompatibility JavaVersion.VERSION_17' android/app/build.gradle
 
+      - name: Restore keystore file
+        working-directory: ./source/ailake-app
+        run: |
+          echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
+
+      - name: Configure signing in build.gradle
+        working-directory: ./source/ailake-app
+        run: |
+          # 添加签名配置到 build.gradle
+          cat >> android/app/build.gradle << 'EOF'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file("ailake_key.jks")
+                      storePassword System.getenv("KEY_STORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
       - name: Build APK (保留所有 Capacitor 资源)
         working-directory: ./source/ailake-app/android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: ailake-app-debug
-          path: source/ailake-app/android/app/build/outputs/apk/debug/app-debug.apk
+          name: ailake-release-apk
+          path: source/ailake-app/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
