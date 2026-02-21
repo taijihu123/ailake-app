@@ -47,10 +47,10 @@ jobs:
     - name: Build APK
       run: |
         cd android
-        ./gradlew assembleDebug
+        ./gradlew assembleRelease
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: ailake-app-debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        name: ailake-app-release
+        path: android/app/build/outputs/apk/release/app-release.apk
