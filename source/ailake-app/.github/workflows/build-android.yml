@@ -18,11 +18,7 @@ jobs:
 
     - name: Restore keystore file
       run: |
-        if [ "${{ secrets.KEY_STORE_FILE }}" ]; then
-          echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
-        else
-          echo "No keystore file provided, using default"
-        fi
+        echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -61,12 +57,12 @@ jobs:
         ./gradlew assembleRelease --stacktrace
       env:
         KEY_STORE_FILE: ailake_key.jks
-        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD || 'default_password' }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'ailake_key' }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'default_password' }}
+        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    - name: Upload APK
+    - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
-        name: ailake-app-release
-        path: android/app/build/outputs/apk/release/app-release.apk
+        name: ailake-release-apk
+        path: android/app/build/outputs/apk/release/*.apk
