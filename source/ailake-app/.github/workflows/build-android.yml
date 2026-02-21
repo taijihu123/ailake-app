@@ -16,6 +16,14 @@ jobs:
     - name: Fix Git safe directory issue
       run: git config --global --add safe.directory /__w/ailake-app/ailake-app
 
+    - name: Restore keystore file
+      run: |
+        if [ "${{ secrets.KEY_STORE_FILE }}" ]; then
+          echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
+        else
+          echo "No keystore file provided, using default"
+        fi
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -51,6 +59,11 @@ jobs:
       run: |
         cd android
         ./gradlew assembleRelease --stacktrace
+      env:
+        KEY_STORE_FILE: ailake_key.jks
+        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD || 'default_password' }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'ailake_key' }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'default_password' }}
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
