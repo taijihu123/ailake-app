@@ -38,6 +38,13 @@ jobs:
         with:
           accept-android-sdk-licenses: true
 
+      - name: Debug - Check environment
+        run: |
+          echo "Node version: $(node --version)"
+          echo "Java version: $(java -version 2>&1 | head -n 1)"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "Build tools not found"
+
       - name: 同步 Capacitor 资源
         working-directory: ./source/ailake-app
         run: |
@@ -48,9 +55,15 @@ jobs:
         run: |
           cat android/app/build.gradle
 
+      - name: Debug - Check project structure
+        working-directory: ./source/ailake-app
+        run: |
+          ls -la
+          ls -la android/app/
+
       - name: Build APK (无签名测试)
         working-directory: ./source/ailake-app/android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace 2>&1 | tail -100
 
       - name: Upload APK 产物
         uses: actions/upload-artifact@v4
