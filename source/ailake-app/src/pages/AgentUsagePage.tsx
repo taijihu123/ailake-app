@@ -24,8 +24,6 @@ const AgentUsagePage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        // 模拟获取智能体列表
-        // 实际项目中应调用后端API
         const mockAgents: Agent[] = [
           {
             id: 'agent_1',
@@ -75,7 +73,6 @@ const AgentUsagePage: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchAgents();
   }, []);
 
@@ -93,28 +90,25 @@ const AgentUsagePage: React.FC = () => {
 
   const handleUseAgent = (agent: Agent) => {
     console.log('使用智能体:', agent.name);
-    // 实际项目中应调用后端API启动智能体
-    alert(`正在启动 ${agent.name} 智能体...`);
-    // 导航到聊天页面或智能体交互页面
     navigate('/chat');
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex flex-col">
       {/* 顶部状态栏 */}
-      <div className="w-full flex justify-between items-center py-4 px-4 bg-white shadow-sm">
-        <button onClick={() => navigate('/home')} className="text-sm text-[#09bb07] font-medium">
+      <header className="w-full flex justify-between items-center py-4 px-4 bg-white shadow-sm">
+        <button onClick={() => navigate('/home')} className="text-sm text-green-600 font-medium">
           ← 返回
         </button>
-        <div className="text-sm font-medium">智能体中心</div>
-        <div className="w-8"></div> {/* 占位符 */}
-      </div>
+        <div className="text-sm font-medium text-gray-800">智能体中心</div>
+        <div className="w-8"></div>
+      </header>
 
       {/* 核心内容区 */}
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 overflow-y-auto pb-20">
         {/* 页面标题 */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#09bb07] mb-2">智能体中心</h1>
+          <h1 className="text-2xl font-bold text-green-600 mb-2">智能体中心</h1>
           <p className="text-gray-600">与您的智能助手通话</p>
         </div>
 
@@ -125,10 +119,10 @@ const AgentUsagePage: React.FC = () => {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${
+                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
                   selectedCategory === category.id 
-                    ? 'bg-[#09bb07] text-white'
-                    : 'bg-white text-gray-700 border border-gray-200'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:border-green-300'
                 }`}
               >
                 {category.name}
@@ -153,7 +147,7 @@ const AgentUsagePage: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {filteredAgents.map(agent => (
-              <div key={agent.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div key={agent.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6">
                   <div className="flex items-start">
                     <div className={`w-20 h-20 ${agent.status === 'active' ? 'bg-gradient-to-br from-green-400 to-blue-500' : 'bg-gray-300'} rounded-full flex items-center justify-center text-3xl text-white mr-4 shadow-md`}>
@@ -162,8 +156,12 @@ const AgentUsagePage: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="text-xl font-medium">{agent.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{agent.category === 'education' ? '教育助手' : agent.category === 'research' ? '科研助手' : agent.category === 'life' ? '生活助手' : '创意助手'}</p>
+                          <h3 className="text-xl font-medium text-gray-800">{agent.name}</h3>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {agent.category === 'education' ? '教育助手' : 
+                             agent.category === 'research' ? '科研助手' : 
+                             agent.category === 'life' ? '生活助手' : '创意助手'}
+                          </p>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${agent.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {agent.status === 'active' ? '在线' : '离线'}
@@ -179,7 +177,7 @@ const AgentUsagePage: React.FC = () => {
                         <button
                           onClick={() => handleUseAgent(agent)}
                           disabled={agent.status === 'inactive'}
-                          className={`flex-1 py-3 rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${agent.status === 'active' ? 'bg-[#09bb07] text-white hover:bg-[#079a05]' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                          className={`flex-1 py-3 rounded-lg text-sm font-medium flex items-center justify-center transition-colors ${agent.status === 'active' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
                         >
                           <span className="mr-2">📞</span>
                           语音通话
@@ -203,16 +201,37 @@ const AgentUsagePage: React.FC = () => {
       </main>
 
       {/* 底部导航栏 */}
-      <nav className="flex justify-around items-center py-4 border-t bg-white">
-        <div className="flex flex-col items-center text-gray-500 cursor-pointer" onClick={() => navigate('/home')}>
-          <span className="text-sm">首页</span>
-        </div>
-        <div className="flex flex-col items-center text-gray-500 cursor-pointer" onClick={() => navigate('/courses')}>
-          <span className="text-sm">学习</span>
-        </div>
-        <div className="flex flex-col items-center text-gray-500 cursor-pointer" onClick={() => navigate('/my')}>
-          <span className="text-sm">我的</span>
-        </div>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around items-center shadow-lg z-50">
+        <button onClick={() => navigate('/home')} className="flex flex-col items-center py-2 px-4 text-gray-400 hover:text-green-600 transition-colors">
+          <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+          <span className="text-xs font-medium">首页</span>
+        </button>
+        <button onClick={() => navigate('/courses')} className="flex flex-col items-center py-2 px-4 text-gray-400 hover:text-green-600 transition-colors">
+          <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+          </svg>
+          <span className="text-xs font-medium">学习</span>
+        </button>
+        <button onClick={() => navigate('/agent-usage')} className="flex flex-col items-center py-2 px-4 text-green-600">
+          <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.38 1 1.73V7h-1a6 6 0 0 0-6 6v4a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h10v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-4a6 6 0 0 0-6-6h-1v-1.27c.6-.35 1-.99 1-1.73a2 2 0 0 0-2-2zm-4 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/>
+          </svg>
+          <span className="text-xs font-medium">智能体</span>
+        </button>
+        <button onClick={() => navigate('/wallet')} className="flex flex-col items-center py-2 px-4 text-gray-400 hover:text-green-600 transition-colors">
+          <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span className="text-xs font-medium">钱包</span>
+        </button>
+        <button onClick={() => navigate('/my')} className="flex flex-col items-center py-2 px-4 text-gray-400 hover:text-green-600 transition-colors">
+          <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+          <span className="text-xs font-medium">我的</span>
+        </button>
       </nav>
     </div>
   );
