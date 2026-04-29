@@ -41,13 +41,9 @@ jobs:
       - name: 关键步骤：让 Capacitor 自动生成正确的 Android 项目
         working-directory: ./source/ailake-app
         run: |
-          # 清理旧的 Android 目录
           rm -rf android
-          # 添加 Android 平台（Capacitor 会生成默认的 build.gradle）
           npx cap add android
-          # 同步配置（关键：保留所有资源和依赖）
           npx cap sync android
-          # 只修改 Java 版本，不覆盖整个 build.gradle（核心修复）
           sed -i '/compileOptions {/!b;n;c\        sourceCompatibility JavaVersion.VERSION_17' android/app/build.gradle
           sed -i '/compileOptions {/!b;n;n;c\        targetCompatibility JavaVersion.VERSION_17' android/app/build.gradle
 
@@ -59,9 +55,15 @@ jobs:
       - name: Configure signing in build.gradle
         working-directory: ./source/ailake-app
         run: |
-          # 添加签名配置到 build.gradle
-          cat >> android/app/build.gradle << 'EOF'
-
+          sed -i '/signingConfigs {/d' android/app/build.gradle
+          sed -i '/release {/d' android/app/build.gradle
+          sed -i '/storeFile/d' android/app/build.gradle
+          sed -i '/storePassword/d' android/app/build.gradle
+          sed -i '/keyAlias/d' android/app/build.gradle
+          sed -i '/keyPassword/d' android/app/build.gradle
+          sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
+          
+          cat > android/app/signing-config.gradle << 'EOF'
           android {
               signingConfigs {
                   release {
@@ -71,7 +73,6 @@ jobs:
                       keyPassword System.getenv("KEY_PASSWORD")
                   }
               }
-
               buildTypes {
                   release {
                       signingConfig signingConfigs.release
@@ -79,6 +80,11 @@ jobs:
               }
           }
           EOF
+
+      - name: Update build.gradle to include signing config
+        working-directory: ./source/ailake-app
+        run: |
+          echo "apply from: 'signing-config.gradle'" >> android/app/build.gradle
 
       - name: Build APK (保留所有 Capacitor 资源)
         working-directory: ./source/ailake-app/android
