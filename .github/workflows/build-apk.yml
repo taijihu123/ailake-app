@@ -38,27 +38,17 @@ jobs:
         with:
           accept-android-sdk-licenses: true
 
-      - name: 关键步骤：让 Capacitor 自动生成正确的 Android 项目
+      - name: 同步 Capacitor 资源（保留现有 Android 配置）
         working-directory: ./source/ailake-app
         run: |
-          rm -rf android
-          npx cap add android
           npx cap sync android
-          sed -i '/compileOptions {/!b;n;c\        sourceCompatibility JavaVersion.VERSION_17' android/app/build.gradle
-          sed -i '/compileOptions {/!b;n;n;c\        targetCompatibility JavaVersion.VERSION_17' android/app/build.gradle
 
       - name: Restore keystore file
         working-directory: ./source/ailake-app
         run: |
           echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
 
-      - name: Add signing configuration to build.gradle
-        working-directory: ./source/ailake-app
-        run: |
-          sed -i '/defaultConfig {/a\    signingConfigs {\n        release {\n            storeFile file(System.getenv("KEY_STORE_FILE") ?: "ailake_key.jks")\n            storePassword System.getenv("KEY_STORE_PASSWORD")\n            keyAlias System.getenv("KEY_ALIAS")\n            keyPassword System.getenv("KEY_PASSWORD")\n        }\n    }' android/app/build.gradle
-          sed -i '/buildTypes {/a\        release {\n            signingConfig signingConfigs.release\n        }' android/app/build.gradle
-
-      - name: Build APK (保留所有 Capacitor 资源)
+      - name: Build APK
         working-directory: ./source/ailake-app/android
         run: ./gradlew assembleRelease --stacktrace
         env:
