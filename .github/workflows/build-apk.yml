@@ -38,7 +38,7 @@ jobs:
         with:
           accept-android-sdk-licenses: true
 
-      - name: 同步 Capacitor 资源（保留现有 Android 配置）
+      - name: 同步 Capacitor 资源
         working-directory: ./source/ailake-app
         run: |
           npx cap sync android
@@ -47,6 +47,13 @@ jobs:
         working-directory: ./source/ailake-app
         run: |
           echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
+          ls -la android/app/ailake_key.jks
+
+      - name: Debug - Check environment variables
+        run: |
+          echo "KEY_STORE_PASSWORD set: ${{ secrets.KEY_STORE_PASSWORD != '' }}"
+          echo "KEY_ALIAS set: ${{ secrets.KEY_ALIAS != '' }}"
+          echo "KEY_PASSWORD set: ${{ secrets.KEY_PASSWORD != '' }}"
 
       - name: Build APK
         working-directory: ./source/ailake-app/android
