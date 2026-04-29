@@ -52,44 +52,17 @@ jobs:
         run: |
           echo "${{ secrets.KEY_STORE_FILE }}" | base64 -d > android/app/ailake_key.jks
 
-      - name: Configure signing in build.gradle
+      - name: Add signing configuration to build.gradle
         working-directory: ./source/ailake-app
         run: |
-          sed -i '/signingConfigs {/d' android/app/build.gradle
-          sed -i '/release {/d' android/app/build.gradle
-          sed -i '/storeFile/d' android/app/build.gradle
-          sed -i '/storePassword/d' android/app/build.gradle
-          sed -i '/keyAlias/d' android/app/build.gradle
-          sed -i '/keyPassword/d' android/app/build.gradle
-          sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
-          
-          cat > android/app/signing-config.gradle << 'EOF'
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file("ailake_key.jks")
-                      storePassword System.getenv("KEY_STORE_PASSWORD")
-                      keyAlias System.getenv("KEY_ALIAS")
-                      keyPassword System.getenv("KEY_PASSWORD")
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                  }
-              }
-          }
-          EOF
-
-      - name: Update build.gradle to include signing config
-        working-directory: ./source/ailake-app
-        run: |
-          echo "apply from: 'signing-config.gradle'" >> android/app/build.gradle
+          sed -i '/defaultConfig {/a\    signingConfigs {\n        release {\n            storeFile file(System.getenv("KEY_STORE_FILE") ?: "ailake_key.jks")\n            storePassword System.getenv("KEY_STORE_PASSWORD")\n            keyAlias System.getenv("KEY_ALIAS")\n            keyPassword System.getenv("KEY_PASSWORD")\n        }\n    }' android/app/build.gradle
+          sed -i '/buildTypes {/a\        release {\n            signingConfig signingConfigs.release\n        }' android/app/build.gradle
 
       - name: Build APK (保留所有 Capacitor 资源)
         working-directory: ./source/ailake-app/android
         run: ./gradlew assembleRelease --stacktrace
         env:
+          KEY_STORE_FILE: ailake_key.jks
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
