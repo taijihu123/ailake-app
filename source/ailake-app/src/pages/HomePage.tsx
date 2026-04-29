@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/images/logo.jpg';
-import avatar from '../assets/images/avatar.jpg';
 import SearchBar from '../components/SearchBar';
 import SearchResults from '../components/SearchResults';
 
@@ -84,15 +83,18 @@ const HomePage: React.FC = () => {
           </div>
           <div className="text-sm font-medium text-gray-800">Ailake 实验室</div>
         </div>
-        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-green-200">
-          <img src={avatar} alt="User" className="w-full h-full object-cover" />
-        </div>
+        <button onClick={() => navigate('/my')} className="flex flex-col items-center">
+          <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+          <span className="text-xs text-gray-500">我的</span>
+        </button>
       </header>
 
       {/* 核心内容区 */}
-      <main className="flex-1 p-4 overflow-y-auto pb-20">
+      <main className="flex-1 p-4 overflow-y-auto pb-24">
         {/* 欢迎区域 */}
-        <div className="mb-6 text-center">
+        <div className="mb-6 text-center mt-6">
           <h1 className="text-2xl font-bold text-green-600 mb-2">Ailake 实验室</h1>
           <p className="text-gray-600 italic text-sm">让日常观察，变成可落地的创新</p>
         </div>
